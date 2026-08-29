@@ -1,0 +1,27 @@
+{
+  "name": "pari-du-jour",
+  "version": "1.0.0",
+  "description": "Page de vente du pari du jour à 1€ avec interface admin",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kyzcodepro/UsOpen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kyzcodepro/UsOpen/issues"
+  },
+  "homepage": "https://github.com/kyzcodepro/UsOpen#readme",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "stripe": "^22.6.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}
