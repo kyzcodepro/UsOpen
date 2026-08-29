@@ -101,6 +101,9 @@ router.get('/pari', wrap(async (req, res) => {
   if (!auth.hasAccess(req, bet.date)) {
     return res.redirect('/?erreur=' + encodeURIComponent('Accès expiré ou non payé pour le pari du jour.'));
   }
+  // Meme regle que la photo du ticket : ce pronostic a ete paye, il ne doit
+  // vivre que dans l'onglet qui l'a demande.
+  res.set('Cache-Control', 'private, no-store');
   res.send(views.betPage({ bet }));
 }));
 
