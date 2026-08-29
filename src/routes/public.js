@@ -5,12 +5,44 @@ const store = require('../store');
 const views = require('../views');
 const auth = require('../auth');
 const payment = require('../payment');
+const config = require('../config');
+const db = require('../db');
 
 const router = express.Router();
 
 // Les handlers sont asynchrones : sans ce relais, un rejet de promesse
 // terminerait la requete sans reponse.
 const wrap = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+// Diagnostic de deploiement : sans lui, une base injoignable ne donne qu'une
+// page d'erreur muette. On ne renvoie jamais le jeton ni l'URL complete.
+function redact(text) {
+  let out = String(text);
+  if (config.databaseAuthToken) out = out.split(config.databaseAuthToken).join('«jeton»');
+  return out.replace(/authToken=[^&\s]+/gi, 'authToken=«jeton»').slice(0, 400);
+}
+
+router.get('/sante', wrap(async (req, res) => {
+  const started = Date.now();
+  const cible = config.databaseUrl.replace(/\?.*$/, '').replace(/\/\/[^@]*@/, '//');
+  try {
+    await db.query('SELECT 1 AS ok');
+    res.json({ base: 'ok', cible, ms: Date.now() - started });
+  } catch (err) {
+    console.error('[sante] base injoignable :', err);
+    res.status(503).json({
+      base: 'erreur',
+      cible,
+      jeton: config.databaseAuthToken
+        ? config.databaseAuthToken.length + ' caractères'
+        : 'absent',
+      code: err.code || err.name || null,
+      message: redact(err.message || err),
+      cause: err.cause ? redact(err.cause.message || err.cause) : null,
+      ms: Date.now() - started,
+    });
+  }
+}));
 
 router.get('/', wrap(async (req, res) => {
   const bet = await store.getTodayBet();

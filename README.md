@@ -62,6 +62,19 @@ l'application Express et `vercel.json` y renvoie toutes les requêtes.
 libSQL parle HTTP : il n'y a pas de connexion à maintenir ni de pool à
 dimensionner, ce qui évite l'écueil classique des bases SQL en serverless.
 
+### Vérifier que la base répond
+
+`GET /sante` tente une requête triviale et renvoie du JSON :
+
+```json
+{ "base": "ok", "cible": "libsql://…turso.io", "ms": 42 }
+```
+
+En cas d'échec, la réponse nomme la cause (`401` = jeton invalide, `404` = URL
+de base erronée, un délai dépassé = hôte injoignable). Le jeton n'est jamais
+renvoyé, seulement sa longueur. Les mêmes détails partent dans les logs de la
+fonction (Vercel → Logs).
+
 Rien n'est écrit sur le disque en production : le disque de Vercel est en
 lecture seule et chaque instance est jetable. La base de données et les photos
 vivent dans Turso, le secret de signature et le mot de passe admin dans

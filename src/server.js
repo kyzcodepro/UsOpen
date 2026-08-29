@@ -38,7 +38,9 @@ if (config.errors.length) {
   });
 
   app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
-    console.error('[erreur]', err);
+    // Ces traces sont visibles dans les logs de la fonction (Vercel → Logs).
+    console.error('[erreur]', req.method, req.url, '\n', err && err.stack ? err.stack : err);
+    if (err && err.cause) console.error('[erreur] cause :', err.cause);
     res.status(500).send(views.messagePage({
       title: 'Erreur',
       heading: 'Une erreur est survenue',
