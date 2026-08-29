@@ -42,33 +42,40 @@ test('Pending and void results cannot change the bankroll', () => {
   assert.equal(result.progress, 40);
 });
 
-test('Public scoreboard excludes today’s bet from the public history query', async (t) => {
+test('Public scoreboard includes a settled today bet but not a pending one', async (t) => {
   const originalQuery = db.query;
-  const current = {
+  const currentPending = {
     id: '11111111-1111-4111-8111-111111111111', date: '2026-08-29', matchLabel: 'Aujourd’hui',
     pick: 'À cacher', odds: '1.70', bookmaker: null, confidence: 3, analysis: null,
     stakeCents: 1000, outcome: 'pending', photo_mime: null, photo_size: null,
   };
+  const currentSettled = { ...currentPending, matchLabel: 'Aujourd’hui réglé', pick: 'À montrer', outcome: 'won' };
   const past = {
     id: '22222222-2222-4222-8222-222222222222', date: '2026-08-28', matchLabel: 'Hier',
     pick: 'Visible', odds: '1.90', bookmaker: null, confidence: 4, analysis: null,
     stakeCents: 1000, outcome: 'won', photo_mime: null, photo_size: null,
   };
 
+  let historyQuery = '';
   db.query = async (sql) => {
     if (sql.includes('INSERT INTO bankroll_settings')) return { rows: [] };
     if (sql.includes('FROM bankroll_settings')) return { rows: [SETTINGS] };
-    if (sql.includes('WHERE bet_date <')) return { rows: [past] };
-    if (sql.includes('FROM bets ORDER BY')) return { rows: [current, past] };
+    if (sql.includes("outcome IN ('won', 'lost', 'void')")) {
+      historyQuery = sql;
+      return { rows: [currentSettled, past] };
+    }
+    if (sql.includes('FROM bets ORDER BY')) return { rows: [currentPending, currentSettled, past] };
     throw new Error(`Unexpected query: ${sql}`);
   };
   t.after(() => { db.query = originalQuery; });
 
   const result = await publicScoreboard();
 
-  assert.equal(result.history.length, 1);
-  assert.equal(result.history[0].match, 'Hier');
-  assert.doesNotMatch(JSON.stringify(result.history), /Aujourd’hui|À cacher/);
+  assert.match(historyQuery, /bet_date = \? AND outcome IN/);
+  assert.equal(result.history.length, 2);
+  assert.equal(result.history[0].match, 'Aujourd’hui réglé');
+  assert.equal(result.history[1].match, 'Hier');
+  assert.doesNotMatch(JSON.stringify(result.history), /À cacher/);
 });
 
 test('Homepage renders a configurable live balance and public history without an admin link', () => {

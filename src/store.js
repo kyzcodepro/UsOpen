@@ -271,7 +271,14 @@ async function publicScoreboard() {
   const [settings, bets, history] = await Promise.all([
     getBankrollSettings(),
     listBets(),
-    db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE bet_date < ? ORDER BY bet_date DESC`, [cutoff]),
+    // Le pari du jour reste prive tant qu'il est en attente. Des qu'un
+    // resultat est saisi, il rejoint l'historique sans attendre minuit.
+    db.query(
+      `SELECT ${BET_COLUMNS} FROM bets
+       WHERE bet_date < ? OR (bet_date = ? AND outcome IN ('won', 'lost', 'void'))
+       ORDER BY bet_date DESC`,
+      [cutoff, cutoff],
+    ),
   ]);
   return buildPublicScoreboard(settings, bets, history.rows.map(toBet));
 }
