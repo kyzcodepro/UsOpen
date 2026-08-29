@@ -16,6 +16,14 @@ const wrap = (handler) => (req, res, next) => Promise.resolve(handler(req, res, 
 
 // Diagnostic de deploiement : sans lui, une base injoignable ne donne qu'une
 // page d'erreur muette. On ne renvoie jamais le jeton ni l'URL complete.
+// Un jeton Turso est un JWT : « eyJ… » en trois parties separees par des
+// points. On ne revele que sa forme, jamais son contenu.
+function tokenShape(token) {
+  if (!token) return 'absent';
+  const shape = /^eyJ[\w-]*\.[\w-]+\.[\w-]+$/.test(token) ? 'JWT valide en la forme' : 'PAS un JWT';
+  return `${token.length} caractères, ${shape}`;
+}
+
 function redact(text) {
   let out = String(text);
   if (config.databaseAuthToken) out = out.split(config.databaseAuthToken).join('«jeton»');
@@ -27,15 +35,13 @@ router.get('/sante', wrap(async (req, res) => {
   const cible = config.databaseUrl.replace(/\?.*$/, '').replace(/\/\/[^@]*@/, '//');
   try {
     await db.query('SELECT 1 AS ok');
-    res.json({ base: 'ok', cible, ms: Date.now() - started });
+    res.json({ base: 'ok', cible, jeton: tokenShape(config.databaseAuthToken), ms: Date.now() - started });
   } catch (err) {
     console.error('[sante] base injoignable :', err);
     res.status(503).json({
       base: 'erreur',
       cible,
-      jeton: config.databaseAuthToken
-        ? config.databaseAuthToken.length + ' caractères'
-        : 'absent',
+      jeton: tokenShape(config.databaseAuthToken),
       code: err.code || err.name || null,
       message: redact(err.message || err),
       cause: err.cause ? redact(err.cause.message || err.cause) : null,
