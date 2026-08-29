@@ -134,7 +134,6 @@ function homePage({ bet, hasAccess, error }) {
   </section>
 
   <footer class="foot">
-    <a href="/admin">Espace admin</a>
     <span>Jouer comporte des risques : endettement, isolement, dépendance. 18+</span>
     <span class="foot-mark">NYC / HARD COURT</span>
   </footer>
