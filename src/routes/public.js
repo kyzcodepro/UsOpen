@@ -77,11 +77,20 @@ router.get('/sante', wrap(async (req, res) => {
   res.status(ok ? 200 : 503).json(rapport);
 }));
 
+router.get('/api/scoreboard', wrap(async (req, res) => {
+  // Mise a jour sans rechargement de la page toutes les 30 secondes cote client.
+  // Le cache est volontairement desactive : ce nombre doit refleter les ventes
+  // deja recues par le webhook Stripe.
+  res.set('Cache-Control', 'no-store, max-age=0');
+  res.json(await store.publicScoreboard());
+}));
+
 router.get('/', wrap(async (req, res) => {
-  const bet = await store.getTodayBet();
+  const [bet, scoreboard] = await Promise.all([store.getTodayBet(), store.publicScoreboard()]);
   res.send(views.homePage({
     bet,
     hasAccess: Boolean(bet) && auth.hasAccess(req, bet.date),
+    scoreboard,
     error: req.query.erreur ? String(req.query.erreur).slice(0, 200) : null,
   }));
 }));

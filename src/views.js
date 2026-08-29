@@ -29,7 +29,7 @@ function layout({ title, body, bodyClass = '' }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(title)}</title>
-<link rel="stylesheet" href="/styles.css?v=usopen-one-screen">
+<link rel="stylesheet" href="/styles.css?v=usopen-live-score-2">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎯</text></svg>">
 </head>
 <body class="${bodyClass}">
@@ -70,7 +70,52 @@ function betCard(bet, { blurred }) {
 </article>`;
 }
 
-function homePage({ bet, hasAccess, error }) {
+function shortDate(isoDate) {
+  const [y, m, d] = String(isoDate).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' })
+    .format(new Date(Date.UTC(y, m - 1, d)))
+    .replace('.', '');
+}
+
+function scoreboardPanel(scoreboard) {
+  const score = scoreboard || {
+    balanceCents: 0, targetCents: 10000, remainingCents: 10000,
+    progress: 0, percentage: 0, orders: 0, history: [],
+  };
+  const progress = Math.min(100, Math.max(0, Number(score.progress) || 0));
+  const history = score.history.length
+    ? score.history.map((bet, index) => `<article class="history-card">
+        <span class="history-index">${String(index + 1).padStart(2, '0')}</span>
+        <div><span class="history-date">${escape(shortDate(bet.date))}</span><h3>${escape(bet.match)}</h3></div>
+        <div class="history-pick"><span>SÉLECTION</span><strong>${escape(bet.pick)}</strong></div>
+        <div class="history-odd"><span>COTE</span><strong>${escape(bet.odds)}</strong></div>
+      </article>`).join('')
+    : `<div class="history-empty"><span>ARCHIVES</span><p>Les premières sélections apparaîtront ici.<br>Le premier point se joue maintenant.</p></div>`;
+
+  return `
+  <section class="scoreboard" aria-label="Objectif et solde des ventes">
+    <div class="goal-copy">
+      <p class="eyebrow">MISSION <span>///</span> OBJECTIF 100 €</p>
+      <h2>ROAD TO<br><i>ONE HUNDRED.</i></h2>
+      <p>Chaque accès débloqué pousse le compteur. On joue la montée, point après point.</p>
+    </div>
+    <div class="goal-meter" data-scoreboard data-target-cents="${Number(score.targetCents)}">
+      <div class="goal-topline"><span>SOLDE LIVE</span><span class="live-dot"><i></i> CONFIRMÉ</span></div>
+      <div class="goal-number"><strong data-balance>${escape(money(score.balanceCents))}</strong><span>/ ${escape(money(score.targetCents))}</span></div>
+      <div class="goal-track" role="progressbar" aria-label="Progression vers l'objectif de 100 euros" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span data-progress style="--progress:${progress}%"></span></div>
+      <div class="goal-scale"><span>0 €</span><b data-progress-label>${progress}%</b><span>100 €</span></div>
+      <p class="goal-status" data-goal-status>${score.balanceCents >= score.targetCents ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.' : `PLUS QUE ${money(score.remainingCents)} POUR FAIRE 100 €.`}</p>
+    </div>
+  </section>
+
+  <section class="history" id="historique" aria-label="Historique des paris">
+    <header class="history-heading"><div><span>02 / TRACK RECORD</span><h2>HISTORIQUE<br><i>DES PARIS.</i></h2></div><p><b data-orders>${Number(score.orders)}</b> accès confirmés<br>au compteur</p></header>
+    <div class="history-list">${history}</div>
+  </section>`;
+}
+
+function homePage({ bet, hasAccess, scoreboard, error }) {
   const teaser = bet
     ? `<div class="teaser">
         <div class="teaser-inner">
@@ -109,7 +154,7 @@ function homePage({ bet, hasAccess, error }) {
       <h1 id="hero-title"><span>US</span> <strong>OPEN</strong><em>PARI DU<br>JOUR</em></h1>
       <p class="baseline">Le signal avant le service. Un seul pronostic travaillé, au rythme du tournoi.</p>
       <div class="hero-meta" aria-label="Informations sur le pari">
-        <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span>
+        <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span><span class="meta-balance"><b data-balance-hero>${escape(money(scoreboard.balanceCents))}</b> LIVE / 100 €</span>
       </div>
     </div>
     <div class="hero-art" aria-hidden="true">
@@ -133,12 +178,41 @@ function homePage({ bet, hasAccess, error }) {
     <article><span>03</span><h3>NO<br>SUBSCRIPTION</h3><p>${escape(config.priceLabel)}. Puis c'est tout.</p></article>
   </section>
 
+  ${scoreboardPanel(scoreboard)}
+
   <footer class="foot">
-    <a href="/admin">Espace admin</a>
     <span>Jouer comporte des risques : endettement, isolement, dépendance. 18+</span>
     <span class="foot-mark">NYC / HARD COURT</span>
   </footer>
-</main>`,
+</main>
+<script>
+(() => {
+  const root = document.querySelector('[data-scoreboard]');
+  if (!root || !window.fetch) return;
+  const euros = (cents) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format((Number(cents) || 0) / 100);
+  const setAll = (selector, value) => document.querySelectorAll(selector).forEach((node) => { node.textContent = value; });
+  const refresh = async () => {
+    try {
+      const response = await fetch('/api/scoreboard', { cache: 'no-store', headers: { Accept: 'application/json' } });
+      if (!response.ok) return;
+      const score = await response.json();
+      const progress = Math.min(100, Math.max(0, Number(score.progress) || 0));
+      const bar = root.querySelector('[data-progress]');
+      const meter = root.querySelector('[role="progressbar"]');
+      setAll('[data-balance]', euros(score.balanceCents));
+      setAll('[data-balance-hero]', euros(score.balanceCents));
+      setAll('[data-progress-label]', progress + '%');
+      setAll('[data-orders]', String(Number(score.orders) || 0));
+      setAll('[data-goal-status]', score.balanceCents >= score.targetCents
+        ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.'
+        : 'PLUS QUE ' + euros(score.remainingCents) + ' POUR FAIRE 100 €.');
+      if (bar) bar.style.setProperty('--progress', progress + '%');
+      if (meter) meter.setAttribute('aria-valuenow', String(progress));
+    } catch (_) { /* Le compteur garde la derniere valeur valide. */ }
+  };
+  window.setInterval(refresh, 30000);
+})();
+</script>`,
   });
 }
 

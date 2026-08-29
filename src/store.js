@@ -161,6 +161,38 @@ async function salesByDate() {
   return new Map(rows.map((row) => [row.date, Number(row.sales)]));
 }
 
+const GOAL_CENTS = 10000;
+
+// Cette vue ne contient ni e-mail, ni reference de paiement : elle alimente
+// uniquement le compteur public et l'historique de selections publiees.
+function buildPublicScoreboard(stats, bets, sales) {
+  const balanceCents = Math.max(0, Number(stats.totalCents) || 0);
+  const orders = Math.max(0, Number(stats.totalOrders) || 0);
+  const percentage = Math.round((balanceCents / GOAL_CENTS) * 100);
+
+  return {
+    targetCents: GOAL_CENTS,
+    balanceCents,
+    remainingCents: Math.max(0, GOAL_CENTS - balanceCents),
+    percentage,
+    progress: Math.min(100, percentage),
+    orders,
+    history: bets.slice(0, 6).map((bet) => ({
+      date: bet.date,
+      match: bet.match,
+      pick: bet.pick,
+      odds: bet.odds,
+      confidence: bet.confidence,
+      sales: sales.get(bet.date) || 0,
+    })),
+  };
+}
+
+async function publicScoreboard() {
+  const [totals, bets, sales] = await Promise.all([stats(), listBets(), salesByDate()]);
+  return buildPublicScoreboard(totals, bets, sales);
+}
+
 module.exports = {
   today,
   getBetByDate,
@@ -173,4 +205,6 @@ module.exports = {
   recordOrder,
   stats,
   salesByDate,
+  buildPublicScoreboard,
+  publicScoreboard,
 };
