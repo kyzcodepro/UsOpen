@@ -92,20 +92,45 @@ seraient invalides d'une requête à l'autre.
 | `APP_SECRET` | Secret de signature des cookies. Obligatoire en production ; persisté dans `data/secret.key` en local |
 | `BASE_URL` | URL publique, utilisée pour les redirections Stripe |
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe. Si absente → mode démo |
+| `STRIPE_WEBHOOK_SECRET` | Secret du webhook (`whsec_…`). Sans lui, l'endpoint webhook est désactivé |
 | `PRICE_CENTS` | Prix en centimes (défaut `100`, soit 1,00 €) |
 | `MAX_PHOTO_MB` | Taille maximale d'une photo, en Mo (défaut `2`) |
 | `PORT` | Port d'écoute en local (ignoré en serverless) |
 
 ## Brancher Stripe
 
-1. Créez un compte sur [stripe.com](https://stripe.com) et récupérez votre clé secrète
-   (`sk_test_…` pour les tests, `sk_live_…` en production).
-2. Renseignez `STRIPE_SECRET_KEY` et `BASE_URL` dans `.env`, puis redémarrez.
-3. En test, utilisez la carte `4242 4242 4242 4242` avec une date future et n'importe quel CVC.
+1. Créez un compte sur [stripe.com](https://stripe.com) et récupérez votre clé
+   secrète (`sk_test_…` pour les tests, `sk_live_…` en production).
+2. Définissez `STRIPE_SECRET_KEY` **et** `BASE_URL` (l'URL publique du site).
+3. En test, utilisez la carte `4242 4242 4242 4242`, une date future,
+   n'importe quel CVC.
 
-Le paiement est confirmé au retour de Stripe : l'application interroge l'API pour
-vérifier que `payment_status === 'paid'` avant de donner l'accès. Aucune clé Stripe
-n'est exposée côté navigateur.
+`BASE_URL` n'est pas optionnelle une fois Stripe actif : c'est l'adresse où
+Stripe renvoie l'acheteur après paiement. Si elle pointe encore sur
+`localhost`, ou si une clé `sk_live_` est utilisée sans `https`, l'application
+refuse de démarrer et le dit — encaisser puis renvoyer le client dans le vide
+serait pire qu'une page d'erreur.
+
+Le paiement est confirmé au retour de Stripe : l'application interroge l'API
+pour vérifier que `payment_status === 'paid'` avant de donner l'accès. Aucune
+clé Stripe n'est exposée côté navigateur.
+
+### Le webhook (recommandé)
+
+Si l'acheteur ferme l'onglet avant d'être redirigé, le retour navigateur n'a
+jamais lieu : il a payé, mais la vente n'est pas comptabilisée. Le webhook
+rattrape ce cas.
+
+1. Stripe → Developers → Webhooks → *Add endpoint*
+2. URL : `https://votre-site/paiement/webhook`
+3. Événement : `checkout.session.completed`
+4. Copiez le secret (`whsec_…`) dans `STRIPE_WEBHOOK_SECRET`, puis redéployez.
+
+La signature est vérifiée sur les octets bruts du corps ; une signature
+invalide donne un `400` et n'enregistre rien. Comme l'enregistrement est
+idempotent (la référence est l'ID de session Stripe), une vente confirmée à la
+fois par le retour navigateur et par le webhook n'est comptée qu'une seule
+fois. Sans `STRIPE_WEBHOOK_SECRET`, l'endpoint répond `404`.
 
 ## Structure
 

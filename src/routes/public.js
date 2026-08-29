@@ -117,6 +117,59 @@ router.get('/paiement/demo', wrap(async (req, res) => {
   res.redirect('/pari');
 }));
 
+/**
+ * La signature Stripe porte sur les octets exacts du corps. On les lit
+ * nous-memes : certains hebergeurs parsent le corps avant nous, auquel cas
+ * la signature devient inverifiable et il vaut mieux le dire que d'enregistrer
+ * une vente non authentifiee.
+ */
+function readRawBody(req) {
+  if (Buffer.isBuffer(req.body)) return Promise.resolve(req.body);
+  if (typeof req.body === 'string') return Promise.resolve(Buffer.from(req.body, 'utf8'));
+  if (req.body && typeof req.body === 'object') return Promise.resolve(null);
+  if (req.readableEnded) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', () => resolve(null));
+  });
+}
+
+// Filet de securite : si l'acheteur ferme l'onglet avant la redirection, le
+// retour navigateur n'a pas lieu et la vente serait perdue. Stripe la notifie
+// ici. L'enregistrement etant idempotent, une vente confirmee des deux cotes
+// n'est comptee qu'une fois.
+router.post('/paiement/webhook', wrap(async (req, res) => {
+  if (!config.stripeWebhookSecret) return res.status(404).end();
+
+  const raw = await readRawBody(req);
+  if (!raw || !raw.length) {
+    console.error('[webhook] corps brut indisponible : signature invérifiable');
+    return res.status(400).json({ error: 'corps brut indisponible' });
+  }
+
+  let event;
+  try {
+    event = payment.verifyWebhook(raw, req.get('stripe-signature'));
+  } catch (err) {
+    console.error('[webhook] signature refusée :', err.message);
+    return res.status(400).json({ error: 'signature invalide' });
+  }
+  if (!event) return res.status(404).end();
+
+  if (event.type === 'checkout.session.completed'
+    || event.type === 'checkout.session.async_payment_succeeded') {
+    const order = payment.orderFromSession(event.data.object);
+    if (order) {
+      await store.recordOrder(order);
+      console.log('[webhook] vente enregistrée', order.reference, order.betDate);
+    }
+  }
+
+  res.json({ received: true });
+}));
+
 router.get('/paiement/annule', (req, res) => {
   res.send(views.messagePage({
     title: 'Paiement annulé',

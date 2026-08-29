@@ -27,6 +27,7 @@ async function createCheckout(betDate) {
         product_data: { name: 'Pari du jour — ' + betDate },
       },
     }],
+    locale: 'fr',
     client_reference_id: betDate,
     metadata: { betDate },
     success_url: config.baseUrl + '/paiement/retour?session_id={CHECKOUT_SESSION_ID}',
@@ -36,11 +37,11 @@ async function createCheckout(betDate) {
   return { url: session.url };
 }
 
-// Verifie aupres de Stripe que la session est bien payee avant de donner l'acces.
-async function confirmCheckout(sessionId) {
-  if (config.demoMode) return null;
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
-  if (session.payment_status !== 'paid') return null;
+// Une session Stripe payee devient une commande. La reference est l'ID de
+// session : le retour navigateur et le webhook decrivent donc la meme vente,
+// et l'enregistrement etant idempotent, elle n'est comptee qu'une fois.
+function orderFromSession(session) {
+  if (!session || session.payment_status !== 'paid') return null;
   return {
     reference: session.id,
     provider: 'stripe',
@@ -48,6 +49,22 @@ async function confirmCheckout(sessionId) {
     amountCents: session.amount_total,
     email: session.customer_details?.email || null,
   };
+}
+
+// Verifie aupres de Stripe que la session est bien payee avant de donner l'acces.
+async function confirmCheckout(sessionId) {
+  if (config.demoMode) return null;
+  return orderFromSession(await stripe.checkout.sessions.retrieve(sessionId));
+}
+
+/**
+ * Valide la signature d'un webhook Stripe sur le corps BRUT de la requete.
+ * Renvoie null si les webhooks ne sont pas configures ; leve si la signature
+ * est invalide, pour qu'on reponde 400 sans rien enregistrer.
+ */
+function verifyWebhook(rawBody, signature) {
+  if (config.demoMode || !config.stripeWebhookSecret) return null;
+  return stripe.webhooks.constructEvent(rawBody, signature, config.stripeWebhookSecret);
 }
 
 function confirmDemo(token) {
@@ -64,4 +81,4 @@ function confirmDemo(token) {
   };
 }
 
-module.exports = { createCheckout, confirmCheckout, confirmDemo };
+module.exports = { createCheckout, confirmCheckout, confirmDemo, verifyWebhook, orderFromSession };

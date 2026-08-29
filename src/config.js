@@ -90,6 +90,7 @@ const config = {
   databaseUrl,
   databaseAuthToken,
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
   priceCents: Number(process.env.PRICE_CENTS) || 100,
   currency: 'eur',
   // Duree de validite de l'acces achete (24 h).
@@ -112,6 +113,17 @@ const config = {
 };
 
 config.demoMode = !config.stripeSecretKey;
+config.stripeLive = config.stripeSecretKey.startsWith('sk_live_');
+
+// Stripe redirige l'acheteur vers BASE_URL apres paiement. Mal renseignee,
+// on encaisse puis on renvoie le client dans le vide : mieux vaut afficher
+// une page de configuration que de prendre l'argent sans livrer.
+if (config.stripeSecretKey && /localhost|127\.0\.0\.1/.test(config.baseUrl)) {
+  errors.push('BASE_URL (Stripe est actif mais BASE_URL pointe encore sur localhost)');
+}
+if (config.stripeLive && !config.baseUrl.startsWith('https://')) {
+  errors.push('BASE_URL (une clé Stripe live exige une URL https)');
+}
 config.priceLabel = (config.priceCents / 100).toFixed(2).replace('.', ',') + ' €';
 
 module.exports = config;
