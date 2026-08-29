@@ -31,23 +31,50 @@ function redact(text) {
 }
 
 router.get('/sante', wrap(async (req, res) => {
-  const started = Date.now();
   const cible = config.databaseUrl.replace(/\?.*$/, '').replace(/\/\/[^@]*@/, '//');
+  const rapport = { base: null, stripe: null };
+
+  const debut = Date.now();
   try {
     await db.query('SELECT 1 AS ok');
-    res.json({ base: 'ok', cible, jeton: tokenShape(config.databaseAuthToken), ms: Date.now() - started });
+    rapport.base = { etat: 'ok', cible, jeton: tokenShape(config.databaseAuthToken), ms: Date.now() - debut };
   } catch (err) {
     console.error('[sante] base injoignable :', err);
-    res.status(503).json({
-      base: 'erreur',
+    rapport.base = {
+      etat: 'erreur',
       cible,
       jeton: tokenShape(config.databaseAuthToken),
       code: err.code || err.name || null,
       message: redact(err.message || err),
       cause: err.cause ? redact(err.cause.message || err.cause) : null,
-      ms: Date.now() - started,
-    });
+      ms: Date.now() - debut,
+    };
   }
+
+  rapport.stripe = {
+    mode: config.demoMode ? 'DÉMO — le pari est gratuit' : (config.stripeLive ? 'live' : 'test'),
+    webhook: config.stripeWebhookSecret ? 'configuré' : 'absent',
+    retourVers: config.baseUrl + '/paiement/retour',
+  };
+  if (!config.demoMode) {
+    try {
+      const tarif = await payment.describePrice();
+      rapport.stripe.tarif = tarif;
+      rapport.stripe.affichéSurLeSite = config.priceLabel;
+      // Le site annoncerait un prix, Stripe en facturerait un autre.
+      if (tarif.amountCents !== config.priceCents) {
+        rapport.stripe.ALERTE = `Le site affiche ${config.priceLabel} mais Stripe facturerait `
+          + `${(tarif.amountCents / 100).toFixed(2)} ${String(tarif.currency).toUpperCase()}`;
+      }
+      if (tarif.recurrent) rapport.stripe.ALERTE = 'Ce tarif est un abonnement ; il faut un tarif ponctuel.';
+      if (tarif.actif === false) rapport.stripe.ALERTE = 'Ce tarif est archivé dans Stripe.';
+    } catch (err) {
+      rapport.stripe.erreur = redact(err.message || err);
+    }
+  }
+
+  const ok = rapport.base.etat === 'ok' && !rapport.stripe.erreur && !rapport.stripe.ALERTE;
+  res.status(ok ? 200 : 503).json(rapport);
 }));
 
 router.get('/', wrap(async (req, res) => {

@@ -17,16 +17,23 @@ async function createCheckout(betDate) {
     return { url: '/paiement/demo?token=' + encodeURIComponent(token) };
   }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    line_items: [{
+  // Avec un tarif du tableau de bord, Stripe garde un seul produit. Sinon on
+  // le construit a la volee : le nom reste constant et la date passe en
+  // description, sans quoi Stripe creerait un produit par jour.
+  const lineItem = config.stripePriceId
+    ? { price: config.stripePriceId, quantity: 1 }
+    : {
       quantity: 1,
       price_data: {
         currency: config.currency,
         unit_amount: config.priceCents,
-        product_data: { name: 'Pari du jour — ' + betDate },
+        product_data: { name: 'Pari du jour', description: 'Pronostic du ' + betDate },
       },
-    }],
+    };
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [lineItem],
     locale: 'fr',
     client_reference_id: betDate,
     metadata: { betDate },
@@ -67,6 +74,27 @@ function verifyWebhook(rawBody, signature) {
   return stripe.webhooks.constructEvent(rawBody, signature, config.stripeWebhookSecret);
 }
 
+/**
+ * Relit le tarif configure dans Stripe. Sert au diagnostic : si le montant
+ * facture differe du prix affiche sur le site, il vaut mieux le voir avant
+ * qu'un client ne le decouvre.
+ */
+async function describePrice() {
+  if (config.demoMode) return { source: 'démo', amountCents: config.priceCents, currency: config.currency };
+  if (!config.stripePriceId) {
+    return { source: 'PRICE_CENTS', amountCents: config.priceCents, currency: config.currency };
+  }
+  const price = await stripe.prices.retrieve(config.stripePriceId);
+  return {
+    source: 'STRIPE_PRICE_ID',
+    id: price.id,
+    amountCents: price.unit_amount,
+    currency: price.currency,
+    actif: price.active,
+    recurrent: Boolean(price.recurring),
+  };
+}
+
 function confirmDemo(token) {
   const payload = auth.verify(token);
   if (!payload || payload.kind !== 'demo') return null;
@@ -81,4 +109,7 @@ function confirmDemo(token) {
   };
 }
 
-module.exports = { createCheckout, confirmCheckout, confirmDemo, verifyWebhook, orderFromSession };
+module.exports = {
+  createCheckout, confirmCheckout, confirmDemo,
+  verifyWebhook, orderFromSession, describePrice,
+};

@@ -92,6 +92,7 @@ seraient invalides d'une requête à l'autre.
 | `APP_SECRET` | Secret de signature des cookies. Obligatoire en production ; persisté dans `data/secret.key` en local |
 | `BASE_URL` | URL publique, utilisée pour les redirections Stripe |
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe. Si absente → mode démo |
+| `STRIPE_PRICE_ID` | Tarif du tableau de bord Stripe (`price_…`). Sans lui, le tarif vient de `PRICE_CENTS` |
 | `STRIPE_WEBHOOK_SECRET` | Secret du webhook (`whsec_…`). Sans lui, l'endpoint webhook est désactivé |
 | `PRICE_CENTS` | Prix en centimes (défaut `100`, soit 1,00 €) |
 | `MAX_PHOTO_MB` | Taille maximale d'une photo, en Mo (défaut `2`) |
@@ -114,6 +115,18 @@ serait pire qu'une page d'erreur.
 Le paiement est confirmé au retour de Stripe : l'application interroge l'API
 pour vérifier que `payment_status === 'paid'` avant de donner l'accès. Aucune
 clé Stripe n'est exposée côté navigateur.
+
+### Utiliser un tarif du tableau de bord
+
+Par défaut, le tarif est construit à la volée depuis `PRICE_CENTS` : rien à
+créer dans Stripe. Si vous préférez piloter le prix depuis le tableau de bord,
+définissez `STRIPE_PRICE_ID` avec l'identifiant du **tarif** (`price_…`, visible
+sur la page du produit — l'identifiant du produit, `prod_…`, n'est pas
+utilisable ici).
+
+Dans ce cas `PRICE_CENTS` ne sert plus qu'à l'affichage sur le site : les deux
+doivent concorder. `GET /sante` compare les deux et signale l'écart, ainsi
+qu'un tarif archivé ou récurrent.
 
 ### Le webhook (recommandé)
 

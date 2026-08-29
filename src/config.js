@@ -91,6 +91,9 @@ const config = {
   databaseAuthToken,
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  // Tarif cree dans le tableau de bord Stripe (price_...). Facultatif : sans
+  // lui, le tarif est construit a la volee a partir de PRICE_CENTS.
+  stripePriceId: process.env.STRIPE_PRICE_ID || '',
   priceCents: Number(process.env.PRICE_CENTS) || 100,
   currency: 'eur',
   // Duree de validite de l'acces achete (24 h).
