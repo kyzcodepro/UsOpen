@@ -92,18 +92,25 @@ seraient invalides d'une requête à l'autre.
 | `APP_SECRET` | Secret de signature des cookies. Obligatoire en production ; persisté dans `data/secret.key` en local |
 | `BASE_URL` | URL publique, utilisée pour les redirections Stripe |
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe. Si absente → mode démo |
-| `STRIPE_PRICE_ID` | Tarif du tableau de bord Stripe (`price_…`). Sans lui, le tarif vient de `PRICE_CENTS` |
+| `STRIPE_PRICE_ID` | Identifiant du tarif Stripe Checkout. Par défaut : `price_1U9cHpDtqk1qvqGzPK7j5hi5` (« Prono du jour », 1,00 €) |
 | `STRIPE_WEBHOOK_SECRET` | Secret du webhook (`whsec_…`). Sans lui, l'endpoint webhook est désactivé |
-| `PRICE_CENTS` | Prix en centimes (défaut `100`, soit 1,00 €) |
+| `PRICE_CENTS` | Prix affiché et prix du mode démo en centimes (défaut `100`, soit 1,00 €), à garder cohérent avec le tarif Stripe |
 | `MAX_PHOTO_MB` | Taille maximale d'une photo, en Mo (défaut `2`) |
 | `PORT` | Port d'écoute en local (ignoré en serverless) |
 
 ## Brancher Stripe
 
-1. Créez un compte sur [stripe.com](https://stripe.com) et récupérez votre clé
-   secrète (`sk_test_…` pour les tests, `sk_live_…` en production).
-2. Définissez `STRIPE_SECRET_KEY` **et** `BASE_URL` (l'URL publique du site).
-3. En test, utilisez la carte `4242 4242 4242 4242`, une date future,
+1. Le projet utilise déjà le tarif Stripe **« Prono du jour » à 1,00 €** :
+   `price_1U9cHpDtqk1qvqGzPK7j5hi5`. Il est transmis à Checkout comme
+   `line_items[0].price`, de sorte qu'aucun produit n'est créé à chaque achat.
+2. Ce tarif a été créé en **mode réel** ; récupérez une clé `sk_live_…` dans le
+   même compte Stripe pour la production. Pour tester sans encaisser, créez un
+   tarif séparé en mode test, puis définissez à la fois sa clé `sk_test_…` et
+   son identifiant dans `STRIPE_PRICE_ID`.
+3. Définissez `STRIPE_SECRET_KEY` **et** `BASE_URL` (l'URL publique du site). Le
+   `STRIPE_PRICE_ID` par défaut convient ; ne le remplacez que si vous créez un
+   autre tarif. Gardez `PRICE_CENTS` à `100` tant que le tarif reste à 1,00 €.
+4. Avec un tarif et une clé de test, utilisez la carte `4242 4242 4242 4242`, une date future,
    n'importe quel CVC.
 
 `BASE_URL` n'est pas optionnelle une fois Stripe actif : c'est l'adresse où
@@ -118,15 +125,15 @@ clé Stripe n'est exposée côté navigateur.
 
 ### Utiliser un tarif du tableau de bord
 
-Par défaut, le tarif est construit à la volée depuis `PRICE_CENTS` : rien à
-créer dans Stripe. Si vous préférez piloter le prix depuis le tableau de bord,
-définissez `STRIPE_PRICE_ID` avec l'identifiant du **tarif** (`price_…`, visible
-sur la page du produit — l'identifiant du produit, `prod_…`, n'est pas
-utilisable ici).
+Le tarif par défaut est celui du produit **« Prono du jour »** fourni :
+`price_1U9cHpDtqk1qvqGzPK7j5hi5`. L'identifiant du produit (`prod_…`) ne peut
+pas être utilisé pour Checkout ; il faut l'identifiant de son **tarif**
+(`price_…`).
 
-Dans ce cas `PRICE_CENTS` ne sert plus qu'à l'affichage sur le site : les deux
-doivent concorder. `GET /sante` compare les deux et signale l'écart, ainsi
-qu'un tarif archivé ou récurrent.
+Pour modifier le prix, créez un nouveau tarif ponctuel dans Stripe puis
+définissez son identifiant dans `STRIPE_PRICE_ID`. `PRICE_CENTS` ne sert qu'à
+l'affichage et au mode démo : gardez-le cohérent avec le tarif. `GET /sante`
+compare les montants et signale un écart, un tarif archivé ou un abonnement.
 
 ### Le webhook (recommandé)
 

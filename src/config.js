@@ -78,6 +78,11 @@ if (/^libsql:|^wss:|^https:/.test(databaseUrl) && !databaseAuthToken) {
 }
 
 const admin = resolveAdminPassword();
+// Tarif unique du produit Stripe « Prono du jour » fourni pour ce site. La
+// variable d'environnement permet de le remplacer proprement si le tarif est
+// recréé ou modifié dans Stripe.
+const defaultStripePriceId = 'price_1U9cHpDtqk1qvqGzPK7j5hi5';
+const stripePriceId = process.env.STRIPE_PRICE_ID || defaultStripePriceId;
 
 const config = {
   root: ROOT,
@@ -91,9 +96,7 @@ const config = {
   databaseAuthToken,
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
-  // Tarif cree dans le tableau de bord Stripe (price_...). Facultatif : sans
-  // lui, le tarif est construit a la volee a partir de PRICE_CENTS.
-  stripePriceId: process.env.STRIPE_PRICE_ID || '',
+  stripePriceId,
   priceCents: Number(process.env.PRICE_CENTS) || 100,
   currency: 'eur',
   // Duree de validite de l'acces achete (24 h).
@@ -111,7 +114,8 @@ const config = {
   vercelEnv: process.env.VERCEL_ENV || null,
   presentVars: [
     'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN', 'DATABASE_URL', 'ADMIN_PASSWORD',
-    'APP_SECRET', 'BASE_URL', 'STRIPE_SECRET_KEY', 'MAX_PHOTO_MB', 'PRICE_CENTS',
+    'APP_SECRET', 'BASE_URL', 'STRIPE_SECRET_KEY', 'STRIPE_PRICE_ID',
+    'MAX_PHOTO_MB', 'PRICE_CENTS',
   ].filter((name) => Boolean(process.env[name])),
 };
 
@@ -126,6 +130,9 @@ if (config.stripeSecretKey && /localhost|127\.0\.0\.1/.test(config.baseUrl)) {
 }
 if (config.stripeLive && !config.baseUrl.startsWith('https://')) {
   errors.push('BASE_URL (une clé Stripe live exige une URL https)');
+}
+if (config.stripeSecretKey && !/^price_[A-Za-z0-9]+$/.test(config.stripePriceId)) {
+  errors.push('STRIPE_PRICE_ID (doit commencer par price_)');
 }
 config.priceLabel = (config.priceCents / 100).toFixed(2).replace('.', ',') + ' €';
 

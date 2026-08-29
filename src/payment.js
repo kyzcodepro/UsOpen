@@ -17,26 +17,17 @@ async function createCheckout(betDate) {
     return { url: '/paiement/demo?token=' + encodeURIComponent(token) };
   }
 
-  // Avec un tarif du tableau de bord, Stripe garde un seul produit. Sinon on
-  // le construit a la volee : le nom reste constant et la date passe en
-  // description, sans quoi Stripe creerait un produit par jour.
-  const lineItem = config.stripePriceId
-    ? { price: config.stripePriceId, quantity: 1 }
-    : {
-      quantity: 1,
-      price_data: {
-        currency: config.currency,
-        unit_amount: config.priceCents,
-        product_data: { name: 'Pari du jour', description: 'Pronostic du ' + betDate },
-      },
-    };
-
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
-    line_items: [lineItem],
+    line_items: [{
+      // Le prix est gere dans Stripe : aucun produit ou tarif n'est recréé au
+      // passage en caisse. Cela centralise TVA, devise et historique des prix.
+      price: config.stripePriceId,
+      quantity: 1,
+    }],
     locale: 'fr',
     client_reference_id: betDate,
-    metadata: { betDate },
+    metadata: { betDate, stripePriceId: config.stripePriceId },
     success_url: config.baseUrl + '/paiement/retour?session_id={CHECKOUT_SESSION_ID}',
     cancel_url: config.baseUrl + '/paiement/annule',
   });
