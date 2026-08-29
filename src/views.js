@@ -74,14 +74,14 @@ function homePage({ bet, hasAccess, error }) {
   const teaser = bet
     ? `<div class="teaser">
         <div class="teaser-inner">
-          <span class="tag">Pari du jour · ${escape(formatDate(bet.date))}</span>
+          <span class="tag">Carte verrouillée · ${escape(formatDate(bet.date))}</span>
           <p class="blur">${escape(bet.match)}</p>
           <p class="blur small">${escape(bet.pick)} — cote ${escape(bet.odds)}</p>
           ${bet.photo ? '<p class="joined">Photo du ticket jointe</p>' : ''}
         </div>
-        <div class="lock">🔒</div>
+        <div class="lock" aria-hidden="true">⌁</div>
       </div>`
-    : `<div class="teaser empty"><p>Le pari du jour n'est pas encore publié. Repassez dans un moment.</p></div>`;
+    : `<div class="teaser empty"><span class="empty-orb" aria-hidden="true"></span><p>La carte du jour arrive bientôt.<br>Restez dans le jeu.</p></div>`;
 
   const action = !bet
     ? ''
@@ -94,23 +94,49 @@ function homePage({ bet, hasAccess, error }) {
          <p class="note">Paiement unique, sans abonnement. Accès valable 24 h.</p>`;
 
   return layout({
-    title: 'Le pari du jour',
+    title: 'US Open — Le pari du jour',
     bodyClass: 'public',
     body: `${demoBanner}
-<main class="wrap">
-  <h1 class="logo">🎯 Le pari du jour</h1>
-  <p class="baseline">Un seul pronostic par jour, sélectionné et argumenté. ${escape(config.priceLabel)} pour le lire.</p>
-  ${error ? `<p class="error">${escape(error)}</p>` : ''}
-  ${teaser}
-  <div class="cta">${action}</div>
-  <ul class="perks">
-    <li>1 pari sélectionné chaque jour</li>
-    <li>Analyse, cote et niveau de confiance</li>
-    <li>Paiement unique de ${escape(config.priceLabel)}, pas d'abonnement</li>
-  </ul>
+<main class="site-shell">
+  <header class="site-head">
+    <a class="brand" href="/"><span class="brand-court" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
+    <div class="live-status"><i></i> LIVE <span>·</span> FLUSHING, NY</div>
+  </header>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="eyebrow">TENNIS INTELLIGENCE <span>///</span> 2026</p>
+      <h1 id="hero-title"><span>US</span> <strong>OPEN</strong><em>PARI DU<br>JOUR</em></h1>
+      <p class="baseline">Le signal avant le service. Un seul pronostic travaillé, au rythme du tournoi.</p>
+      <div class="hero-meta" aria-label="Informations sur le pari">
+        <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <span class="court-lines"></span><span class="court-net"></span><span class="court-ball"></span>
+      <span class="hero-number">2026</span><span class="art-label">NIGHT<br>SESSION</span>
+    </div>
+  </section>
+
+  <section class="daily-drop" aria-label="Le pronostic du jour">
+    <div class="section-heading"><span>01 / DAILY DROP</span><h2>LE POINT<br><i>DE BASCULE</i></h2><p>Format court. Lecture longue.</p></div>
+    <div class="drop-content">
+      ${error ? `<p class="error">${escape(error)}</p>` : ''}
+      ${teaser}
+      <div class="cta">${action}</div>
+    </div>
+  </section>
+
+  <section class="perks" aria-label="Les garanties du service">
+    <article><span>01</span><h3>UN SEUL<br>ANGLE</h3><p>Zéro bruit. Une sélection assumée.</p></article>
+    <article><span>02</span><h3>ANALYSE<br>NETTE</h3><p>Contexte, cote et confiance.</p></article>
+    <article><span>03</span><h3>NO<br>SUBSCRIPTION</h3><p>${escape(config.priceLabel)}. Puis c'est tout.</p></article>
+  </section>
+
   <footer class="foot">
     <a href="/admin">Espace admin</a>
     <span>Jouer comporte des risques : endettement, isolement, dépendance. 18+</span>
+    <span class="foot-mark">NYC / HARD COURT</span>
   </footer>
 </main>`,
   });
@@ -118,15 +144,22 @@ function homePage({ bet, hasAccess, error }) {
 
 function betPage({ bet }) {
   return layout({
-    title: 'Pari du jour — débloqué',
+    title: 'US Open — Pari débloqué',
     bodyClass: 'public',
     body: `${demoBanner}
-<main class="wrap">
-  <h1 class="logo">🎯 Le pari du jour</h1>
-  <p class="unlocked">✅ Paiement confirmé — voici le pronostic.</p>
+<main class="site-shell unlocked-shell">
+  <header class="site-head">
+    <a class="brand" href="/"><span class="brand-court" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
+    <div class="live-status"><i></i> ACCESS GRANTED</div>
+  </header>
+  <section class="unlocked-intro">
+    <p class="eyebrow">NIGHT SESSION <span>///</span> ANALYSE PREMIUM</p>
+    <h1>LE COURT<br><i>EST À TOI.</i></h1>
+    <p class="unlocked">Paiement confirmé. Voici le pronostic du jour.</p>
+  </section>
   ${betCard(bet, { blurred: false })}
-  <div class="cta"><a class="btn ghost" href="/">Retour à l'accueil</a></div>
-  <footer class="foot"><span>Jouer comporte des risques. 18+</span></footer>
+  <div class="cta"><a class="btn ghost" href="/">← Retour à l'accueil</a></div>
+  <footer class="foot"><span>Jouer comporte des risques. 18+</span><span class="foot-mark">NYC / HARD COURT</span></footer>
 </main>`,
   });
 }
