@@ -193,3 +193,7 @@ label.inline {
   margin: 0; font-size: 14px; color: var(--text); cursor: pointer;
 }
 label.inline input { width: auto; margin: 0; }
+
+.missing { list-style: none; padding: 0; margin: 20px 0 0; }
+.missing li { padding: 11px 14px; border: 1px solid var(--line); border-radius: 9px; margin-bottom: 8px; }
+.missing code { color: var(--accent); font-size: 15px; }

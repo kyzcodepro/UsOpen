@@ -5,9 +5,6 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
-const DATA_DIR = path.join(ROOT, 'data');
-
-fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // Charge un .env minimaliste sans dependance externe.
 function loadDotEnv() {
@@ -25,36 +22,79 @@ function loadDotEnv() {
   }
 }
 
-loadDotEnv();
-
-// Secret de signature persiste sur disque pour survivre aux redemarrages.
-function resolveAppSecret() {
-  if (process.env.APP_SECRET) return process.env.APP_SECRET;
-  const file = path.join(DATA_DIR, 'secret.key');
-  if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
-  const secret = crypto.randomBytes(32).toString('hex');
-  fs.writeFileSync(file, secret, { mode: 0o600 });
-  return secret;
+try {
+  loadDotEnv();
+} catch {
+  // Systeme de fichiers en lecture seule : il n'y a pas de .env en production.
 }
 
-const generatedAdminPassword = process.env.ADMIN_PASSWORD
-  ? null
-  : crypto.randomBytes(9).toString('base64url');
+// En hebergement serverless le disque est en lecture seule et chaque instance
+// est jetable : rien n'est ecrit, tout vient des variables d'environnement.
+const hosted = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+
+const errors = [];
+const warnings = [];
+
+// Secret de signature des cookies. En local on le garde sur disque pour ne pas
+// invalider les sessions a chaque redemarrage ; en production il doit venir de
+// l'environnement, sinon chaque instance signerait avec un secret different.
+function resolveAppSecret() {
+  if (process.env.APP_SECRET) return process.env.APP_SECRET;
+  if (hosted) {
+    errors.push('APP_SECRET');
+    return crypto.randomBytes(32).toString('hex');
+  }
+  const file = path.join(ROOT, 'data', 'secret.key');
+  try {
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const secret = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(file, secret, { mode: 0o600 });
+    return secret;
+  } catch {
+    warnings.push("APP_SECRET non defini et non persistable : les acces payes seront perdus au redemarrage.");
+    return crypto.randomBytes(32).toString('hex');
+  }
+}
+
+function resolveAdminPassword() {
+  if (process.env.ADMIN_PASSWORD) return { password: process.env.ADMIN_PASSWORD, generated: null };
+  if (hosted) {
+    errors.push('ADMIN_PASSWORD');
+    return { password: crypto.randomBytes(24).toString('hex'), generated: null };
+  }
+  const generated = crypto.randomBytes(9).toString('base64url');
+  return { password: generated, generated };
+}
+
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+if (!databaseUrl) errors.push('DATABASE_URL');
+
+const admin = resolveAdminPassword();
 
 const config = {
   root: ROOT,
-  dataDir: DATA_DIR,
-  dbFile: path.join(DATA_DIR, 'db.json'),
+  hosted,
   port: Number(process.env.PORT) || 3000,
   baseUrl: (process.env.BASE_URL || 'http://localhost:' + (process.env.PORT || 3000)).replace(/\/$/, ''),
   appSecret: resolveAppSecret(),
-  adminPassword: process.env.ADMIN_PASSWORD || generatedAdminPassword,
-  generatedAdminPassword,
+  adminPassword: admin.password,
+  generatedAdminPassword: admin.generated,
+  databaseUrl,
+  // Les bases managees (Neon, Vercel Postgres, Supabase) exigent TLS ;
+  // un Postgres local, non.
+  databaseSsl: Boolean(databaseUrl)
+    && !/sslmode=disable/.test(databaseUrl)
+    && !/@(localhost|127\.0\.0\.1)[:/]/.test(databaseUrl),
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
   priceCents: Number(process.env.PRICE_CENTS) || 100,
   currency: 'eur',
   // Duree de validite de l'acces achete (24 h).
   accessTtlMs: 24 * 60 * 60 * 1000,
+  // Taille maximale d'une photo de ticket.
+  maxPhotoBytes: 5 * 1024 * 1024,
+  errors,
+  warnings,
 };
 
 config.demoMode = !config.stripeSecretKey;

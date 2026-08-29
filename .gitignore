@@ -1,12 +1,9 @@
 node_modules/
 .env
-data/db.json
-data/secret.key
+data/
 *.log
 .DS_Store
 
 # Canevas de design généré (2,5 Mo) — se régénère depuis les .dc.html
 design/*.html
 !design/*.dc.html
-
-data/uploads/

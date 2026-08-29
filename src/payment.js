@@ -53,8 +53,10 @@ async function confirmCheckout(sessionId) {
 function confirmDemo(token) {
   const payload = auth.verify(token);
   if (!payload || payload.kind !== 'demo') return null;
+  // Reference derivee du jeton, comme l'ID de session Stripe : rejouer le
+  // retour de paiement ne cree pas une seconde vente.
   return {
-    reference: 'demo_' + crypto.randomUUID(),
+    reference: 'demo_' + crypto.createHash('sha256').update(token).digest('hex').slice(0, 32),
     provider: 'demo',
     betDate: payload.betDate,
     amountCents: config.priceCents,

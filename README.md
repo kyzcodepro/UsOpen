@@ -22,28 +22,55 @@ avec une interface d'administration pour publier ce pronostic.
 - Historique des paris publiés, avec édition et suppression.
 - Compteurs de ventes et de chiffre d'affaires (jour et total).
 
-## Démarrage
+## Démarrage en local
+
+Il faut un PostgreSQL. Le plus simple est de pointer sur la base de
+développement de votre fournisseur, ou sur un Postgres local :
 
 ```bash
 npm install
-cp .env.example .env    # puis éditez .env
+cp .env.example .env    # renseignez au moins DATABASE_URL
 npm start               # http://localhost:3000
 ```
 
-Sans `.env`, l'application démarre quand même : elle génère un mot de passe admin
-aléatoire (affiché dans la console) et passe en **mode démo**, où le paiement est
-simulé pour permettre de tester le parcours de bout en bout.
+Le schéma (`bets`, `orders`) est créé automatiquement au premier appel.
+Sans `ADMIN_PASSWORD`, un mot de passe aléatoire est généré et affiché dans la
+console ; sans `STRIPE_SECRET_KEY`, l'application passe en **mode démo** où le
+paiement est simulé, ce qui permet de tester le parcours de bout en bout.
+
+Si une variable indispensable manque, l'application ne plante pas : elle répond
+`503` avec la liste précise de ce qu'il faut définir.
+
+## Déploiement sur Vercel
+
+L'application tourne en fonction serverless : `api/index.js` exporte
+l'application Express et `vercel.json` y renvoie toutes les requêtes.
+
+1. Créez une base Postgres (Vercel Postgres, Neon ou Supabase) et récupérez sa
+   chaîne de connexion **poolée**.
+2. Dans le projet Vercel, Settings → Environment Variables, définissez :
+   `DATABASE_URL`, `ADMIN_PASSWORD`, `APP_SECRET`, `BASE_URL`
+   (et `STRIPE_SECRET_KEY` pour encaisser réellement).
+3. Redéployez.
+
+Rien n'est écrit sur le disque en production : le disque de Vercel est en
+lecture seule et chaque instance est jetable. La base de données et les photos
+vivent dans PostgreSQL, le secret de signature et le mot de passe admin dans
+les variables d'environnement — c'est pourquoi `APP_SECRET` est obligatoire :
+sans lui, chaque instance signerait les cookies différemment et les accès payés
+seraient invalides d'une requête à l'autre.
 
 ## Configuration
 
 | Variable | Rôle |
 |---|---|
-| `PORT` | Port d'écoute (défaut `3000`) |
+| `DATABASE_URL` | **Obligatoire.** Connexion PostgreSQL (endpoint poolé). `POSTGRES_URL` est accepté aussi |
+| `ADMIN_PASSWORD` | Mot de passe de `/admin`. Obligatoire en production ; généré aléatoirement en local |
+| `APP_SECRET` | Secret de signature des cookies. Obligatoire en production ; persisté dans `data/secret.key` en local |
 | `BASE_URL` | URL publique, utilisée pour les redirections Stripe |
-| `ADMIN_PASSWORD` | Mot de passe de `/admin`. Généré aléatoirement si absent |
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe. Si absente → mode démo |
 | `PRICE_CENTS` | Prix en centimes (défaut `100`, soit 1,00 €) |
-| `APP_SECRET` | Secret de signature des cookies. Généré et persisté dans `data/secret.key` si absent |
+| `PORT` | Port d'écoute en local (ignoré en serverless) |
 
 ## Brancher Stripe
 
@@ -59,27 +86,28 @@ n'est exposée côté navigateur.
 ## Structure
 
 ```
+api/index.js      point d'entrée serverless (exporte l'app Express)
+vercel.json       renvoie toutes les requêtes vers la fonction
 src/
-  server.js       point d'entrée Express
-  config.js       configuration + chargement du .env
-  store.js        persistance JSON (data/db.json), écriture atomique
+  server.js       application Express
+  config.js       configuration, .env, contrôle des variables obligatoires
+  db.js           pool PostgreSQL + création du schéma à la demande
+  store.js        accès aux paris et aux commandes (SQL)
   auth.js         cookies signés HMAC : accès payant et session admin
   payment.js      Stripe Checkout (et son équivalent en mode démo)
-  uploads.js      réception des photos : signature vérifiée, stockage hors public/
+  uploads.js      réception des photos : signature vérifiée, rien sur disque
   views.js        rendu HTML (échappement systématique)
   routes/
     public.js     accueil, paiement, page du pari
     admin.js      connexion, publication, historique
 public/styles.css
-data/db.json      base de données (créée au premier lancement, non versionnée)
-data/uploads/     photos des tickets, hors de public/ (non versionné)
 ```
 
 ## La photo du ticket
 
 Elle est traitée comme du contenu payant, pas seulement masquée à l'écran :
 
-- les fichiers sont écrits dans `data/uploads/`, **hors de `public/`** : rien
+- les octets vivent dans la colonne `photo_data` de la table `bets` : rien
   n'est servi en statique et l'URL n'est pas devinable ;
 - ils ne sortent que par `GET /pari/photo`, qui exige un accès payé pour le pari
   du jour, et répond `403` sinon. L'accueil ne contient pas cette URL ;
@@ -87,16 +115,16 @@ Elle est traitée comme du contenu payant, pas seulement masquée à l'écran :
   partagé ne la conserve ;
 - le type est déduit de la **signature du fichier**, pas de ce que déclare le
   navigateur : un script renommé en `.png` est refusé ;
-- le nom sur disque est un UUID que nous choisissons ; le nom d'origine n'est
-  jamais utilisé ;
-- remplacer une photo, la retirer ou supprimer le pari efface l'ancien fichier.
+- le nom de fichier d'origine n'est jamais utilisé ni conservé ;
+- les octets ne sont lus qu'à la demande, jamais chargés avec le reste du pari ;
+- supprimer le pari supprime la photo avec lui.
 
 ## Notes
 
-- Les données vivent dans un simple fichier JSON, suffisant pour un pari par jour.
-  Pour un volume important, remplacez `src/store.js` par une vraie base.
-- Le dossier `data/` n'est pas versionné : sur un hébergement éphémère (conteneur
-  recréé à chaque déploiement), montez un volume persistant, sinon les paris et
-  les ventes seront perdus.
 - Le mode démo doit rester désactivé en production : sans clé Stripe, n'importe qui
   accède au pari gratuitement.
+- La limitation des tentatives de connexion admin est en mémoire, donc par
+  instance serverless : c'est un garde-fou, pas un rempart. Un mot de passe long
+  reste la vraie protection.
+- Les photos sont stockées telles quelles, sans recompression : une photo de 4 Mo
+  sera renvoyée intégralement à chaque acheteur.

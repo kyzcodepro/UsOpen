@@ -1,123 +1,145 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
-const config = require('./config');
-
-const EMPTY = { bets: [], orders: [] };
-
-function read() {
-  try {
-    const raw = fs.readFileSync(config.dbFile, 'utf8');
-    const parsed = JSON.parse(raw);
-    return { bets: parsed.bets || [], orders: parsed.orders || [] };
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      console.error('[store] base illisible, repartie a vide :', err.message);
-    }
-    return { ...EMPTY };
-  }
-}
-
-// Ecriture atomique : on passe par un fichier temporaire puis un rename.
-function write(db) {
-  const tmp = config.dbFile + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-  fs.renameSync(tmp, config.dbFile);
-}
+const db = require('./db');
 
 function today() {
   // Date du jour au format YYYY-MM-DD, fuseau Europe/Paris.
   return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 }
 
-function getBetByDate(date) {
-  return read().bets.find((bet) => bet.date === date) || null;
+// La colonne est de type `date` : on la lit en texte pour eviter que le driver
+// ne la convertisse en Date et ne decale le jour selon le fuseau du serveur.
+const BET_COLUMNS = `
+  id,
+  to_char(bet_date, 'YYYY-MM-DD') AS date,
+  match, pick, odds, bookmaker, confidence, analysis,
+  photo_mime, photo_size,
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`;
+
+function toBet(row) {
+  if (!row) return null;
+  const bet = { ...row };
+  bet.photo = row.photo_mime ? { mime: row.photo_mime, size: row.photo_size } : null;
+  delete bet.photo_mime;
+  delete bet.photo_size;
+  return bet;
 }
 
-function getBetById(id) {
-  return read().bets.find((bet) => bet.id === id) || null;
+async function getBetByDate(date) {
+  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE bet_date = $1`, [date]);
+  return toBet(rows[0]);
+}
+
+async function getBetById(id) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
+  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE id = $1`, [id]);
+  return toBet(rows[0]);
 }
 
 function getTodayBet() {
   return getBetByDate(today());
 }
 
-function listBets() {
-  return read().bets.sort((a, b) => b.date.localeCompare(a.date));
+async function listBets() {
+  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets ORDER BY bet_date DESC`);
+  return rows.map(toBet);
 }
 
-// Un seul pari par date : on remplace celui du jour s'il existe deja.
-function upsertBet(input) {
-  const db = read();
-  const now = new Date().toISOString();
-  const index = db.bets.findIndex((bet) => bet.date === input.date);
-  const bet = {
-    id: index === -1 ? crypto.randomUUID() : db.bets[index].id,
-    date: input.date,
-    match: input.match,
-    pick: input.pick,
-    odds: input.odds,
-    bookmaker: input.bookmaker,
-    confidence: input.confidence,
-    analysis: input.analysis,
-    // { file, mime, size } ou null. L'appelant fournit la valeur finale :
-    // le store ne touche pas aux fichiers sur disque.
-    photo: input.photo || null,
-    createdAt: index === -1 ? now : db.bets[index].createdAt,
-    updatedAt: now,
-  };
-  if (index === -1) db.bets.push(bet);
-  else db.bets[index] = bet;
-  write(db);
-  return bet;
+// Les octets de la photo ne sortent que par ici : ils ne sont jamais charges
+// avec le reste du pari, pour ne pas les trainer dans chaque page rendue.
+async function getBetPhoto(id) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
+  const { rows } = await db.query(
+    'SELECT photo_data, photo_mime FROM bets WHERE id = $1 AND photo_data IS NOT NULL',
+    [id],
+  );
+  if (!rows[0]) return null;
+  return { data: rows[0].photo_data, mime: rows[0].photo_mime };
 }
 
-// Renvoie le pari supprime pour que l'appelant puisse effacer sa photo.
-function deleteBet(id) {
-  const db = read();
-  const removed = db.bets.find((bet) => bet.id === id) || null;
-  if (!removed) return null;
-  db.bets = db.bets.filter((bet) => bet.id !== id);
-  write(db);
-  return removed;
-}
+/**
+ * Un seul pari par date : on remplace celui du jour s'il existe deja.
+ * `photo` vaut undefined (ne pas toucher), null (retirer) ou
+ * { buffer, mime, size } (remplacer).
+ */
+async function upsertBet(input) {
+  const base = [
+    input.date, input.match, input.pick, input.odds,
+    input.bookmaker, input.confidence, input.analysis,
+  ];
 
-function recordOrder(order) {
-  const db = read();
-  if (order.reference && db.orders.some((o) => o.reference === order.reference)) {
-    return db.orders.find((o) => o.reference === order.reference);
+  let photoSet = '';
+  const params = base.slice();
+  if (input.photo === null) {
+    photoSet = ', photo_data = NULL, photo_mime = NULL, photo_size = NULL';
+  } else if (input.photo) {
+    params.push(input.photo.buffer, input.photo.mime, input.photo.size);
+    photoSet = ', photo_data = $8, photo_mime = $9, photo_size = $10';
   }
-  const entry = {
-    id: crypto.randomUUID(),
-    reference: order.reference,
-    provider: order.provider,
-    betDate: order.betDate,
-    amountCents: order.amountCents,
-    email: order.email || null,
-    createdAt: new Date().toISOString(),
-  };
-  db.orders.push(entry);
-  write(db);
-  return entry;
+
+  const insertPhoto = input.photo
+    ? { columns: ', photo_data, photo_mime, photo_size', values: ', $8, $9, $10' }
+    : { columns: '', values: '' };
+
+  const { rows } = await db.query(
+    `INSERT INTO bets (id, bet_date, match, pick, odds, bookmaker, confidence, analysis${insertPhoto.columns})
+     VALUES ($${params.length + 1}, $1, $2, $3, $4, $5, $6, $7${insertPhoto.values})
+     ON CONFLICT (bet_date) DO UPDATE SET
+       match = EXCLUDED.match,
+       pick = EXCLUDED.pick,
+       odds = EXCLUDED.odds,
+       bookmaker = EXCLUDED.bookmaker,
+       confidence = EXCLUDED.confidence,
+       analysis = EXCLUDED.analysis,
+       updated_at = now()${photoSet}
+     RETURNING ${BET_COLUMNS}`,
+    params.concat([crypto.randomUUID()]),
+  );
+  return toBet(rows[0]);
 }
 
-function listOrders() {
-  return read().orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+async function deleteBet(id) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
+  const { rows } = await db.query(`DELETE FROM bets WHERE id = $1 RETURNING ${BET_COLUMNS}`, [id]);
+  return toBet(rows[0]);
 }
 
-function stats() {
-  const orders = read().orders;
-  const currentDay = today();
-  const todayOrders = orders.filter((o) => o.betDate === currentDay);
-  const sum = (list) => list.reduce((total, o) => total + (o.amountCents || 0), 0);
-  return {
-    totalOrders: orders.length,
-    totalCents: sum(orders),
-    todayOrders: todayOrders.length,
-    todayCents: sum(todayOrders),
-  };
+// Idempotent : rejouer le retour d'un paiement ne compte pas la vente deux fois.
+async function recordOrder(order) {
+  const { rows } = await db.query(
+    `INSERT INTO orders (id, reference, provider, bet_date, amount_cents, email)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (reference) DO UPDATE SET reference = EXCLUDED.reference
+     RETURNING id, reference, provider, to_char(bet_date, 'YYYY-MM-DD') AS "betDate",
+               amount_cents AS "amountCents", email, created_at AS "createdAt"`,
+    [crypto.randomUUID(), order.reference, order.provider, order.betDate,
+      order.amountCents, order.email || null],
+  );
+  return rows[0];
+}
+
+async function stats() {
+  const { rows } = await db.query(
+    `SELECT
+       count(*)::int AS "totalOrders",
+       coalesce(sum(amount_cents), 0)::int AS "totalCents",
+       count(*) FILTER (WHERE bet_date = $1)::int AS "todayOrders",
+       coalesce(sum(amount_cents) FILTER (WHERE bet_date = $1), 0)::int AS "todayCents"
+     FROM orders`,
+    [today()],
+  );
+  return rows[0];
+}
+
+async function salesByDate() {
+  const { rows } = await db.query(
+    `SELECT to_char(bet_date, 'YYYY-MM-DD') AS date, count(*)::int AS sales
+     FROM orders GROUP BY bet_date`,
+  );
+  return new Map(rows.map((row) => [row.date, row.sales]));
 }
 
 module.exports = {
@@ -125,10 +147,11 @@ module.exports = {
   getBetByDate,
   getBetById,
   getTodayBet,
+  getBetPhoto,
   listBets,
   upsertBet,
   deleteBet,
   recordOrder,
-  listOrders,
   stats,
+  salesByDate,
 };

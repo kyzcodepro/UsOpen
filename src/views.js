@@ -144,6 +144,20 @@ function messagePage({ title, heading, message, link }) {
   });
 }
 
+function configErrorPage({ missing }) {
+  const rows = missing.map((name) => `<li><code>${escape(name)}</code></li>`).join('');
+  return layout({
+    title: 'Configuration incomplète',
+    bodyClass: 'public',
+    body: `<main class="wrap narrow">
+  <h1 class="logo">Configuration incomplète</h1>
+  <p class="baseline">L'application ne peut pas démarrer tant que ces variables d'environnement ne sont pas définies :</p>
+  <ul class="missing">${rows}</ul>
+  <p class="note">Sur Vercel : Settings → Environment Variables, puis redéployez.</p>
+</main>`,
+  });
+}
+
 function adminLoginPage({ error }) {
   return layout({
     title: 'Admin — connexion',
@@ -162,7 +176,7 @@ function adminLoginPage({ error }) {
   });
 }
 
-function adminDashboard({ bet, bets, stats, today, flash, error }) {
+function adminDashboard({ bet, bets, stats, sales, today, flash, error }) {
   const value = (field) => escape(bet ? bet[field] : '');
   const rows = bets.length
     ? bets.map((item) => `<tr>
@@ -170,6 +184,7 @@ function adminDashboard({ bet, bets, stats, today, flash, error }) {
         <td>${escape(item.match)}</td>
         <td>${escape(item.pick)}</td>
         <td>${escape(item.odds)}</td>
+        <td>${sales && sales.get(item.date) ? sales.get(item.date) : 0}</td>
         <td class="row-actions">
           <a href="/admin?date=${escape(item.date)}">Éditer</a>
           <form method="post" action="/admin/bets/${escape(item.id)}/delete"
@@ -178,7 +193,7 @@ function adminDashboard({ bet, bets, stats, today, flash, error }) {
           </form>
         </td>
       </tr>`).join('')
-    : `<tr><td colspan="5" class="muted">Aucun pari publié pour le moment.</td></tr>`;
+    : `<tr><td colspan="6" class="muted">Aucun pari publié pour le moment.</td></tr>`;
 
   return layout({
     title: 'Admin — pari du jour',
@@ -247,7 +262,7 @@ function adminDashboard({ bet, bets, stats, today, flash, error }) {
   <section class="card">
     <h2>Historique</h2>
     <table>
-      <thead><tr><th>Date</th><th>Match</th><th>Pronostic</th><th>Cote</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>Match</th><th>Pronostic</th><th>Cote</th><th>Ventes</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </section>
@@ -257,6 +272,7 @@ function adminDashboard({ bet, bets, stats, today, flash, error }) {
 
 module.exports = {
   escape,
+  configErrorPage,
   formatDate,
   money,
   homePage,
