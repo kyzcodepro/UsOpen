@@ -120,7 +120,10 @@ const config = {
 };
 
 config.demoMode = !config.stripeSecretKey;
-config.stripeLive = config.stripeSecretKey.startsWith('sk_live_');
+// Les clés limitées Stripe utilisent le préfixe rk_live_, mais représentent
+// elles aussi l'environnement réel et doivent donc bénéficier des mêmes
+// garde-fous HTTPS que les clés secrètes standard sk_live_.
+config.stripeLive = /^(?:sk|rk)_live_/.test(config.stripeSecretKey);
 
 // Stripe redirige l'acheteur vers BASE_URL apres paiement. Mal renseignee,
 // on encaisse puis on renvoie le client dans le vide : mieux vaut afficher

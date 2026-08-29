@@ -19,7 +19,7 @@ function restoreEnv() {
 
 function loadPaymentWithStripe(fakeStripe) {
   process.env.TURSO_DATABASE_URL = 'file:data/test.db';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_checkout';
+  process.env.STRIPE_SECRET_KEY = 'rk_live_checkout';
   process.env.STRIPE_PRICE_ID = 'price_1U9cHpDtqk1qvqGzPK7j5hi5';
   process.env.BASE_URL = 'https://example.test';
 
@@ -34,9 +34,11 @@ function loadPaymentWithStripe(fakeStripe) {
 
   delete require.cache[require.resolve('../src/config')];
   delete require.cache[require.resolve('../src/payment')];
+  const config = require('../src/config');
   const payment = require('../src/payment');
 
   return {
+    config,
     payment,
     cleanup() {
       delete require.cache[require.resolve('../src/config')];
@@ -61,11 +63,12 @@ test('Checkout uses the configured Stripe Price ID without recreating a product'
     },
   };
 
-  const { payment, cleanup } = loadPaymentWithStripe(fakeStripe);
+  const { config, payment, cleanup } = loadPaymentWithStripe(fakeStripe);
   t.after(cleanup);
 
   const result = await payment.createCheckout('2026-08-29');
 
+  assert.equal(config.stripeLive, true);
   assert.equal(result.url, 'https://checkout.stripe.test/c/session');
   assert.deepEqual(request.line_items, [{
     price: 'price_1U9cHpDtqk1qvqGzPK7j5hi5',
