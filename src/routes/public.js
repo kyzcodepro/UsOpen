@@ -85,6 +85,43 @@ router.get('/api/scoreboard', wrap(async (req, res) => {
   res.json(await store.publicScoreboard());
 }));
 
+/**
+ * Le site precedent avait installe un service worker a cette adresse. Un
+ * service worker survit au remplacement du site qui l'a pose : il reste
+ * enregistre dans le navigateur et intercepte chaque requete vers ce domaine,
+ * a laquelle il repond depuis son propre cache. Les visiteurs concernes ne
+ * voient donc pas ce site, mais l'ancien — et aucune correction faite ici ne
+ * les atteint, puisque leurs requetes ne parviennent jamais au serveur.
+ *
+ * Il ne peut pas s'en aller seul : le fichier ayant disparu avec l'ancien
+ * deploiement, la verification de mise a jour recoit une 404, echoue, et
+ * laisse l'enregistrement en place — indefiniment.
+ *
+ * On sert donc a la meme adresse un service worker dont le seul travail est de
+ * se retirer. Le navigateur le recupere a sa prochaine verification, l'installe
+ * a la place de l'ancien, vide les caches, se desinscrit, puis recharge les
+ * onglets ouverts pour qu'ils reprennent leur contenu sur le reseau.
+ */
+router.get('/sw.js', (req, res) => {
+  res.type('text/javascript; charset=utf-8');
+  // Une reponse mise en cache reinstallerait le probleme qu'elle repare.
+  res.set('Cache-Control', 'no-store');
+  res.send(`self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const noms = await caches.keys();
+    await Promise.all(noms.map((nom) => caches.delete(nom)));
+    await self.registration.unregister();
+    // Sans cela, les onglets deja ouverts garderaient l'affichage servi par
+    // l'ancien service worker jusqu'a un rechargement manuel.
+    const onglets = await self.clients.matchAll({ type: 'window' });
+    for (const onglet of onglets) onglet.navigate(onglet.url);
+  })());
+});
+`);
+});
+
 router.get('/', wrap(async (req, res) => {
   const [bet, scoreboard] = await Promise.all([store.getTodayBet(), store.publicScoreboard()]);
   res.send(views.homePage({
