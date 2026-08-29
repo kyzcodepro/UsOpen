@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS bets (
   photo_data  BLOB,
   photo_mime  TEXT,
   photo_size  INTEGER,
+  stake_cents INTEGER NOT NULL DEFAULT 0,
+  outcome     TEXT NOT NULL DEFAULT 'pending',
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -46,15 +48,40 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 CREATE INDEX IF NOT EXISTS orders_bet_date_idx ON orders (bet_date);
+
+CREATE TABLE IF NOT EXISTS bankroll_settings (
+  id                    INTEGER PRIMARY KEY CHECK (id = 1),
+  starting_balance_cents INTEGER NOT NULL DEFAULT 0,
+  goal_cents             INTEGER NOT NULL DEFAULT 10000,
+  goal_title             TEXT NOT NULL DEFAULT 'ROAD TO ONE HUNDRED.',
+  goal_text              TEXT NOT NULL DEFAULT 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
+  updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 // Le schema est cree a la demande, une fois par instance. La promesse est
 // memorisee pour que des requetes simultanees ne le jouent pas en double.
 let ready = null;
 
+async function migrateBetsSchema() {
+  const { rows } = await getClient().execute('PRAGMA table_info(bets)');
+  const columns = new Set(rows.map((row) => row.name));
+  // Les installations existantes possedent deja `bets`. SQLite ne propose pas
+  // un ADD COLUMN IF NOT EXISTS portable : on n'ajoute que ce qui manque.
+  if (!columns.has('stake_cents')) {
+    await getClient().execute('ALTER TABLE bets ADD COLUMN stake_cents INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!columns.has('outcome')) {
+    await getClient().execute("ALTER TABLE bets ADD COLUMN outcome TEXT NOT NULL DEFAULT 'pending'");
+  }
+}
+
 function ensureSchema() {
   if (!ready) {
-    ready = getClient().executeMultiple(SCHEMA).catch((err) => {
+    ready = (async () => {
+      await getClient().executeMultiple(SCHEMA);
+      await migrateBetsSchema();
+    })().catch((err) => {
       ready = null; // on retentera a la prochaine requete
       throw err;
     });

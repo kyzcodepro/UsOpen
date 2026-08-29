@@ -29,7 +29,7 @@ function layout({ title, body, bodyClass = '' }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(title)}</title>
-<link rel="stylesheet" href="/styles.css?v=usopen-live-score-2">
+<link rel="stylesheet" href="/styles.css?v=usopen-bankroll-v1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎯</text></svg>">
 </head>
 <body class="${bodyClass}">
@@ -78,6 +78,19 @@ function shortDate(isoDate) {
     .replace('.', '');
 }
 
+function moneyInput(cents) {
+  return (Math.max(0, Number(cents) || 0) / 100).toFixed(2);
+}
+
+function outcomeLabel(outcome) {
+  return {
+    won: 'GAGNÉ',
+    lost: 'PERDU',
+    void: 'ANNULÉ',
+    pending: 'EN ATTENTE',
+  }[outcome] || 'EN ATTENTE';
+}
+
 function scoreboardPanel(scoreboard) {
   const score = scoreboard || {
     balanceCents: 0, targetCents: 10000, remainingCents: 10000,
@@ -90,27 +103,28 @@ function scoreboardPanel(scoreboard) {
         <div><span class="history-date">${escape(shortDate(bet.date))}</span><h3>${escape(bet.match)}</h3></div>
         <div class="history-pick"><span>SÉLECTION</span><strong>${escape(bet.pick)}</strong></div>
         <div class="history-odd"><span>COTE</span><strong>${escape(bet.odds)}</strong></div>
+        <div class="history-result ${escape(bet.outcome)}"><span>${escape(outcomeLabel(bet.outcome))}</span><strong>${bet.outcome === 'pending' ? '—' : `${bet.profitCents > 0 ? '+' : ''}${escape(money(bet.profitCents))}`}</strong></div>
       </article>`).join('')
     : `<div class="history-empty"><span>ARCHIVES</span><p>Les premières sélections apparaîtront ici.<br>Le premier point se joue maintenant.</p></div>`;
 
   return `
-  <section class="scoreboard" aria-label="Objectif et solde des ventes">
+  <section class="scoreboard" aria-label="Objectif et solde bankroll">
     <div class="goal-copy">
-      <p class="eyebrow">MISSION <span>///</span> OBJECTIF 100 €</p>
-      <h2>ROAD TO<br><i>ONE HUNDRED.</i></h2>
-      <p>Chaque accès débloqué pousse le compteur. On joue la montée, point après point.</p>
+      <p class="eyebrow">MISSION <span>///</span> OBJECTIF <b data-target>${escape(money(score.targetCents))}</b></p>
+      <h2 data-goal-title>${escape(score.goalTitle)}</h2>
+      <p data-goal-text>${escape(score.goalText)}</p>
     </div>
     <div class="goal-meter" data-scoreboard data-target-cents="${Number(score.targetCents)}">
       <div class="goal-topline"><span>SOLDE LIVE</span><span class="live-dot"><i></i> CONFIRMÉ</span></div>
-      <div class="goal-number"><strong data-balance>${escape(money(score.balanceCents))}</strong><span>/ ${escape(money(score.targetCents))}</span></div>
-      <div class="goal-track" role="progressbar" aria-label="Progression vers l'objectif de 100 euros" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span data-progress style="--progress:${progress}%"></span></div>
-      <div class="goal-scale"><span>0 €</span><b data-progress-label>${progress}%</b><span>100 €</span></div>
-      <p class="goal-status" data-goal-status>${score.balanceCents >= score.targetCents ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.' : `PLUS QUE ${money(score.remainingCents)} POUR FAIRE 100 €.`}</p>
+      <div class="goal-number"><strong data-balance>${escape(money(score.balanceCents))}</strong><span>/ <span data-target>${escape(money(score.targetCents))}</span></span></div>
+      <div class="goal-track" role="progressbar" aria-label="Progression vers l'objectif" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span data-progress style="--progress:${progress}%"></span></div>
+      <div class="goal-scale"><span>0 €</span><b data-progress-label>${progress}%</b><span data-target>${escape(money(score.targetCents))}</span></div>
+      <p class="goal-status" data-goal-status>${score.balanceCents >= score.targetCents ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.' : `PLUS QUE ${money(score.remainingCents)} POUR ATTEINDRE L’OBJECTIF.`}</p>
     </div>
   </section>
 
   <section class="history" id="historique" aria-label="Historique des paris">
-    <header class="history-heading"><div><span>02 / TRACK RECORD</span><h2>HISTORIQUE<br><i>DES PARIS.</i></h2></div><p><b data-orders>${Number(score.orders)}</b> accès confirmés<br>au compteur</p></header>
+    <header class="history-heading"><div><span>02 / TRACK RECORD</span><h2>HISTORIQUE<br><i>DES PARIS.</i></h2></div><p><b data-settled>${Number(score.settledCount) || 0}</b> paris réglés<br><span data-wins>${Number(score.wins) || 0}</span> gagnant(s)</p></header>
     <div class="history-list">${history}</div>
   </section>`;
 }
@@ -154,7 +168,7 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
       <h1 id="hero-title"><span>US</span> <strong>OPEN</strong><em>PARI DU<br>JOUR</em></h1>
       <p class="baseline">Le signal avant le service. Un seul pronostic travaillé, au rythme du tournoi.</p>
       <div class="hero-meta" aria-label="Informations sur le pari">
-        <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span><span class="meta-balance"><b data-balance-hero>${escape(money(scoreboard.balanceCents))}</b> LIVE / 100 €</span>
+        <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span><span class="meta-balance"><b data-balance-hero>${escape(money(scoreboard.balanceCents))}</b> LIVE / <span data-hero-target>${escape(money(scoreboard.targetCents))}</span></span>
       </div>
     </div>
     <div class="hero-art" aria-hidden="true">
@@ -201,11 +215,16 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
       const meter = root.querySelector('[role="progressbar"]');
       setAll('[data-balance]', euros(score.balanceCents));
       setAll('[data-balance-hero]', euros(score.balanceCents));
+      setAll('[data-target]', euros(score.targetCents));
+      setAll('[data-hero-target]', euros(score.targetCents));
+      setAll('[data-goal-title]', score.goalTitle);
+      setAll('[data-goal-text]', score.goalText);
       setAll('[data-progress-label]', progress + '%');
-      setAll('[data-orders]', String(Number(score.orders) || 0));
+      setAll('[data-settled]', String(Number(score.settledCount) || 0));
+      setAll('[data-wins]', String(Number(score.wins) || 0));
       setAll('[data-goal-status]', score.balanceCents >= score.targetCents
         ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.'
-        : 'PLUS QUE ' + euros(score.remainingCents) + ' POUR FAIRE 100 €.');
+        : 'PLUS QUE ' + euros(score.remainingCents) + ' POUR ATTEINDRE L’OBJECTIF.');
       if (bar) bar.style.setProperty('--progress', progress + '%');
       if (meter) meter.setAttribute('aria-valuenow', String(progress));
     } catch (_) { /* Le compteur garde la derniere valeur valide. */ }
@@ -289,14 +308,25 @@ function adminLoginPage({ error }) {
   });
 }
 
-function adminDashboard({ bet, bets, stats, sales, today, flash, error }) {
+function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error }) {
   const value = (field) => escape(bet ? bet[field] : '');
+  const stake = moneyInput(bet ? bet.stakeCents : 0);
+  const outcome = bet && bet.outcome ? bet.outcome : 'pending';
+  const moneyField = (cents) => moneyInput(cents);
+  const bankrollValues = bankroll || {
+    startingBalanceCents: 0,
+    goalCents: 10000,
+    goalTitle: 'ROAD TO ONE HUNDRED.',
+    goalText: 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
+  };
   const rows = bets.length
     ? bets.map((item) => `<tr>
         <td>${escape(formatDate(item.date))}</td>
         <td>${escape(item.match)}</td>
         <td>${escape(item.pick)}</td>
         <td>${escape(item.odds)}</td>
+        <td>${escape(money(item.stakeCents))}</td>
+        <td>${escape(outcomeLabel(item.outcome))}</td>
         <td>${sales && sales.get(item.date) ? sales.get(item.date) : 0}</td>
         <td class="row-actions">
           <a href="/admin?date=${escape(item.date)}">Éditer</a>
@@ -306,7 +336,7 @@ function adminDashboard({ bet, bets, stats, sales, today, flash, error }) {
           </form>
         </td>
       </tr>`).join('')
-    : `<tr><td colspan="6" class="muted">Aucun pari publié pour le moment.</td></tr>`;
+    : `<tr><td colspan="8" class="muted">Aucun pari publié pour le moment.</td></tr>`;
 
   return layout({
     title: 'Admin — pari du jour',
@@ -322,6 +352,27 @@ function adminDashboard({ bet, bets, stats, sales, today, flash, error }) {
 <main class="wrap">
   ${flash ? `<p class="success">${escape(flash)}</p>` : ''}
   ${error ? `<p class="error">${escape(error)}</p>` : ''}
+
+  <section class="card bankroll-config">
+    <div class="admin-section-head"><div><span class="label">Solde live public</span><h2>Objectif bankroll</h2></div><p>Le solde se calcule automatiquement après chaque résultat enregistré : mise × cote pour un gain, mise retirée pour une perte.</p></div>
+    <form method="post" action="/admin/bankroll" class="form">
+      <div class="row">
+        <label>Solde initial (€)
+          <input type="number" name="startingBalance" value="${escape(moneyField(bankrollValues.startingBalanceCents))}" min="0" max="1000000" step="0.01" required>
+        </label>
+        <label>Objectif (€)
+          <input type="number" name="goal" value="${escape(moneyField(bankrollValues.goalCents))}" min="0.01" max="1000000" step="0.01" required>
+        </label>
+      </div>
+      <label>Titre de l’objectif
+        <input type="text" name="goalTitle" value="${escape(bankrollValues.goalTitle)}" maxlength="80" required>
+      </label>
+      <label>Texte de l’objectif
+        <textarea name="goalText" rows="3" maxlength="240" required>${escape(bankrollValues.goalText)}</textarea>
+      </label>
+      <button class="btn" type="submit">Mettre à jour le live</button>
+    </form>
+  </section>
 
   <section class="stats">
     <div class="stat"><span class="label">Ventes aujourd'hui</span><strong>${stats.todayOrders}</strong></div>
@@ -353,6 +404,20 @@ function adminDashboard({ bet, bets, stats, sales, today, flash, error }) {
           <input type="number" name="confidence" min="1" max="5" value="${value('confidence') || 3}">
         </label>
       </div>
+      <div class="row bet-resolution">
+        <label>Mise (€)
+          <input type="number" name="stake" value="${escape(stake)}" min="0.01" max="1000000" step="0.01" required>
+        </label>
+        <label>Résultat
+          <select name="outcome" required>
+            <option value="pending"${outcome === 'pending' ? ' selected' : ''}>En attente</option>
+            <option value="won"${outcome === 'won' ? ' selected' : ''}>Gagné</option>
+            <option value="lost"${outcome === 'lost' ? ' selected' : ''}>Perdu</option>
+            <option value="void"${outcome === 'void' ? ' selected' : ''}>Annulé / remboursé</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted resolution-note">Le gain ou la perte est calculé automatiquement à partir de la mise, de la cote et du résultat. Il ne peut pas être saisi manuellement.</p>
       <label>Analyse
         <textarea name="analysis" rows="6" placeholder="Pourquoi ce pari…" maxlength="4000">${value('analysis')}</textarea>
       </label>
@@ -375,7 +440,7 @@ function adminDashboard({ bet, bets, stats, sales, today, flash, error }) {
   <section class="card">
     <h2>Historique</h2>
     <table>
-      <thead><tr><th>Date</th><th>Match</th><th>Pronostic</th><th>Cote</th><th>Ventes</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>Match</th><th>Pronostic</th><th>Cote</th><th>Mise</th><th>Résultat</th><th>Ventes</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </section>

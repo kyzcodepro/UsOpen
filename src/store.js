@@ -14,6 +14,7 @@ const BET_COLUMNS = `
   "match" AS matchLabel,
   pick, odds, bookmaker, confidence, analysis,
   photo_mime, photo_size,
+  stake_cents AS stakeCents, outcome,
   created_at AS createdAt,
   updated_at AS updatedAt
 `;
@@ -31,6 +32,8 @@ function toBet(row) {
     bookmaker: row.bookmaker,
     confidence: Number(row.confidence),
     analysis: row.analysis,
+    stakeCents: Number(row.stakeCents || 0),
+    outcome: row.outcome || 'pending',
     photo: row.photo_mime ? { mime: row.photo_mime, size: Number(row.photo_size) } : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -81,6 +84,7 @@ async function upsertBet(input) {
   const args = [
     crypto.randomUUID(), input.date, input.match, input.pick, input.odds,
     input.bookmaker || null, input.confidence, input.analysis || null,
+    input.stakeCents, input.outcome,
   ];
   if (withPhoto) args.push(input.photo.buffer, input.photo.mime, input.photo.size);
 
@@ -93,9 +97,9 @@ async function upsertBet(input) {
   }
 
   const { rows } = await db.query(
-    `INSERT INTO bets (id, bet_date, "match", pick, odds, bookmaker, confidence, analysis${
+    `INSERT INTO bets (id, bet_date, "match", pick, odds, bookmaker, confidence, analysis, stake_cents, outcome${
       withPhoto ? ', photo_data, photo_mime, photo_size' : ''})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?${withPhoto ? ', ?, ?, ?' : ''})
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?${withPhoto ? ', ?, ?, ?' : ''})
      ON CONFLICT(bet_date) DO UPDATE SET
        "match" = excluded."match",
        pick = excluded.pick,
@@ -103,6 +107,8 @@ async function upsertBet(input) {
        bookmaker = excluded.bookmaker,
        confidence = excluded.confidence,
        analysis = excluded.analysis,
+       stake_cents = excluded.stake_cents,
+       outcome = excluded.outcome,
        updated_at = datetime('now')${photoUpdate}
      RETURNING ${BET_COLUMNS}`,
     args,
@@ -161,36 +167,113 @@ async function salesByDate() {
   return new Map(rows.map((row) => [row.date, Number(row.sales)]));
 }
 
-const GOAL_CENTS = 10000;
+const DEFAULT_BANKROLL_SETTINGS = {
+  startingBalanceCents: 0,
+  goalCents: 10000,
+  goalTitle: 'ROAD TO ONE HUNDRED.',
+  goalText: 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
+};
 
-// Cette vue ne contient ni e-mail, ni reference de paiement : elle alimente
-// uniquement le compteur public et l'historique de selections publiees.
-function buildPublicScoreboard(stats, bets, sales) {
-  const balanceCents = Math.max(0, Number(stats.totalCents) || 0);
-  const orders = Math.max(0, Number(stats.totalOrders) || 0);
-  const percentage = Math.round((balanceCents / GOAL_CENTS) * 100);
+const OUTCOMES = new Set(['pending', 'won', 'lost', 'void']);
+
+function toBankrollSettings(row) {
+  if (!row) return { ...DEFAULT_BANKROLL_SETTINGS };
+  return {
+    startingBalanceCents: Number(row.startingBalanceCents || 0),
+    goalCents: Number(row.goalCents || DEFAULT_BANKROLL_SETTINGS.goalCents),
+    goalTitle: row.goalTitle || DEFAULT_BANKROLL_SETTINGS.goalTitle,
+    goalText: row.goalText || DEFAULT_BANKROLL_SETTINGS.goalText,
+  };
+}
+
+async function getBankrollSettings() {
+  await db.query(
+    `INSERT INTO bankroll_settings (id, starting_balance_cents, goal_cents, goal_title, goal_text)
+     VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`,
+    [
+      DEFAULT_BANKROLL_SETTINGS.startingBalanceCents,
+      DEFAULT_BANKROLL_SETTINGS.goalCents,
+      DEFAULT_BANKROLL_SETTINGS.goalTitle,
+      DEFAULT_BANKROLL_SETTINGS.goalText,
+    ],
+  );
+  const { rows } = await db.query(
+    `SELECT starting_balance_cents AS startingBalanceCents, goal_cents AS goalCents,
+            goal_title AS goalTitle, goal_text AS goalText
+     FROM bankroll_settings WHERE id = 1`,
+  );
+  return toBankrollSettings(rows[0]);
+}
+
+async function updateBankrollSettings(input) {
+  await db.query(
+    `INSERT INTO bankroll_settings (id, starting_balance_cents, goal_cents, goal_title, goal_text, updated_at)
+     VALUES (1, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(id) DO UPDATE SET
+       starting_balance_cents = excluded.starting_balance_cents,
+       goal_cents = excluded.goal_cents,
+       goal_title = excluded.goal_title,
+       goal_text = excluded.goal_text,
+       updated_at = datetime('now')`,
+    [input.startingBalanceCents, input.goalCents, input.goalTitle, input.goalText],
+  );
+  return getBankrollSettings();
+}
+
+function decimalOdds(value) {
+  const odds = Number(String(value || '').replace(',', '.'));
+  return Number.isFinite(odds) && odds >= 1 ? odds : 1;
+}
+
+// Le P&L n'est jamais saisi : il est uniquement derive de la mise, de la cote
+// et du resultat. Une victoire rend la mise puis ajoute le benefice net ; une
+// perte retire la mise ; un pari annule ne modifie pas la bankroll.
+function profitCents(bet) {
+  const stake = Math.max(0, Math.round(Number(bet.stakeCents) || 0));
+  if (bet.outcome === 'won') return Math.round(stake * (decimalOdds(bet.odds) - 1));
+  if (bet.outcome === 'lost') return -stake;
+  return 0;
+}
+
+function buildPublicScoreboard(settings, bets, historyBets) {
+  const safeSettings = { ...DEFAULT_BANKROLL_SETTINGS, ...(settings || {}) };
+  const goalCents = Math.max(1, Number(safeSettings.goalCents) || DEFAULT_BANKROLL_SETTINGS.goalCents);
+  const startingBalanceCents = Math.max(0, Number(safeSettings.startingBalanceCents) || 0);
+  const settled = bets.filter((bet) => bet.outcome === 'won' || bet.outcome === 'lost' || bet.outcome === 'void');
+  const balanceCents = startingBalanceCents + settled.reduce((sum, bet) => sum + profitCents(bet), 0);
+  const percentage = Math.round((balanceCents / goalCents) * 100);
 
   return {
-    targetCents: GOAL_CENTS,
+    targetCents: goalCents,
+    startingBalanceCents,
     balanceCents,
-    remainingCents: Math.max(0, GOAL_CENTS - balanceCents),
+    remainingCents: Math.max(0, goalCents - balanceCents),
     percentage,
-    progress: Math.min(100, percentage),
-    orders,
-    history: bets.slice(0, 6).map((bet) => ({
+    progress: Math.min(100, Math.max(0, percentage)),
+    settledCount: settled.length,
+    wins: settled.filter((bet) => bet.outcome === 'won').length,
+    goalTitle: String(safeSettings.goalTitle).slice(0, 80),
+    goalText: String(safeSettings.goalText).slice(0, 240),
+    history: historyBets.slice(0, 12).map((bet) => ({
       date: bet.date,
       match: bet.match,
       pick: bet.pick,
       odds: bet.odds,
-      confidence: bet.confidence,
-      sales: sales.get(bet.date) || 0,
+      stakeCents: Math.max(0, Number(bet.stakeCents) || 0),
+      outcome: OUTCOMES.has(bet.outcome) ? bet.outcome : 'pending',
+      profitCents: profitCents(bet),
     })),
   };
 }
 
 async function publicScoreboard() {
-  const [totals, bets, sales] = await Promise.all([stats(), listBets(), salesByDate()]);
-  return buildPublicScoreboard(totals, bets, sales);
+  const cutoff = today();
+  const [settings, bets, history] = await Promise.all([
+    getBankrollSettings(),
+    listBets(),
+    db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE bet_date < ? ORDER BY bet_date DESC`, [cutoff]),
+  ]);
+  return buildPublicScoreboard(settings, bets, history.rows.map(toBet));
 }
 
 module.exports = {
@@ -205,6 +288,9 @@ module.exports = {
   recordOrder,
   stats,
   salesByDate,
+  getBankrollSettings,
+  updateBankrollSettings,
+  profitCents,
   buildPublicScoreboard,
   publicScoreboard,
 };

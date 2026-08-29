@@ -36,19 +36,21 @@ function registerFailure(ip) {
 
 async function dashboard(req, res, extra = {}) {
   const date = typeof req.query.date === 'string' ? req.query.date : store.today();
-  const [current, bets, stats, sales] = await Promise.all([
+  const [current, bets, stats, sales, bankroll] = await Promise.all([
     store.getBetByDate(date),
     store.listBets(),
     store.stats(),
     store.salesByDate(),
+    store.getBankrollSettings(),
   ]);
   res.status(extra.status || 200).send(views.adminDashboard({
     bet: extra.bet || current || (date === store.today() ? null : { date }),
     bets,
     stats,
     sales,
+    bankroll,
     today: store.today(),
-    flash: extra.flash || (req.query.ok ? 'Pari enregistré.' : null),
+    flash: extra.flash || (req.query.ok === 'bankroll' ? 'Objectif bankroll mis à jour.' : (req.query.ok ? 'Pari enregistré.' : null)),
     error: extra.error || null,
   }));
 }
@@ -86,6 +88,9 @@ router.post('/admin/bets', auth.requireAdmin, uploads.single('photo'), wrap(asyn
   const match = clean(body.match, 120);
   const pick = clean(body.pick, 120);
   const odds = clean(body.odds, 12);
+  const outcome = clean(body.outcome, 12);
+  const stakeEuros = clean(body.stake, 16).replace(',', '.');
+  const stakeCents = Math.round(Number(stakeEuros) * 100);
   const existing = /^\d{4}-\d{2}-\d{2}$/.test(date) ? await store.getBetByDate(date) : null;
 
   const fail = (message) => dashboard(req, res, {
@@ -96,6 +101,8 @@ router.post('/admin/bets', auth.requireAdmin, uploads.single('photo'), wrap(asyn
       bookmaker: clean(body.bookmaker, 60),
       confidence: body.confidence,
       analysis: clean(body.analysis, 4000),
+      stakeCents: Number.isFinite(stakeCents) ? stakeCents : 0,
+      outcome,
       photo: existing ? existing.photo : null,
       id: existing ? existing.id : null,
     },
@@ -103,9 +110,18 @@ router.post('/admin/bets', auth.requireAdmin, uploads.single('photo'), wrap(asyn
 
   if (req.uploadError) return fail(req.uploadError);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !match || !pick || !odds) {
-    return fail('Date, match, pronostic et cote sont obligatoires.'
+  const eventYear = Number(date.slice(0, 4));
+  const currentYear = Number(store.today().slice(0, 4));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !match || !pick || !odds || !stakeEuros || !outcome) {
+    return fail('Date, match, pronostic, cote, mise et résultat sont obligatoires.'
       + (req.file ? ' La photo est à re-sélectionner.' : ''));
+  }
+  if (eventYear < currentYear) return fail(`La date du pari ne peut pas être antérieure à ${currentYear}.`);
+  if (!Number.isFinite(stakeCents) || stakeCents <= 0 || stakeCents > 100000000) {
+    return fail('La mise doit être un montant positif valide.');
+  }
+  if (!['pending', 'won', 'lost', 'void'].includes(outcome)) {
+    return fail('Le résultat du pari est invalide.');
   }
 
   // undefined : on ne touche pas a la photo. null : on la retire.
@@ -125,10 +141,32 @@ router.post('/admin/bets', auth.requireAdmin, uploads.single('photo'), wrap(asyn
     bookmaker: clean(body.bookmaker, 60),
     confidence: Math.min(5, Math.max(1, Number(body.confidence) || 3)),
     analysis: clean(body.analysis, 4000),
+    stakeCents,
+    outcome,
     photo,
   });
 
   res.redirect('/admin?ok=1&date=' + encodeURIComponent(date));
+}));
+
+router.post('/admin/bankroll', auth.requireAdmin, wrap(async (req, res) => {
+  const startingBalanceRaw = String(req.body.startingBalance || '').trim();
+  const goalRaw = String(req.body.goal || '').trim();
+  const money = (value) => Math.round(Number(value.replace(',', '.')) * 100);
+  const startingBalanceCents = money(startingBalanceRaw);
+  const goalCents = money(goalRaw);
+  const goalTitle = String(req.body.goalTitle || '').trim().slice(0, 80);
+  const goalText = String(req.body.goalText || '').trim().slice(0, 240);
+
+  if (!startingBalanceRaw || !goalRaw || !Number.isFinite(startingBalanceCents) || startingBalanceCents < 0
+    || !Number.isFinite(goalCents) || goalCents <= 0 || !goalTitle || !goalText) {
+    return dashboard(req, res, {
+      status: 400,
+      error: 'Solde initial, objectif, titre et texte de l’objectif sont obligatoires et doivent être valides.',
+    });
+  }
+  await store.updateBankrollSettings({ startingBalanceCents, goalCents, goalTitle, goalText });
+  res.redirect('/admin?ok=bankroll');
 }));
 
 // Apercu de la photo cote admin, derriere la session admin.
