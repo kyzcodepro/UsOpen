@@ -100,6 +100,15 @@ const config = {
   maxPhotoBytes: Math.round((Number(process.env.MAX_PHOTO_MB) || 2) * 1024 * 1024),
   errors,
   warnings,
+  // Sur Vercel, une variable definie pour le seul environnement Production
+  // n'est pas injectee dans un deploiement Preview (et inversement) : savoir
+  // ou l'on tourne, et quels noms sont vus, distingue « mal renseigne » de
+  // « renseigne au mauvais endroit ». Seuls les NOMS sont exposes.
+  vercelEnv: process.env.VERCEL_ENV || null,
+  presentVars: [
+    'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN', 'DATABASE_URL', 'ADMIN_PASSWORD',
+    'APP_SECRET', 'BASE_URL', 'STRIPE_SECRET_KEY', 'MAX_PHOTO_MB', 'PRICE_CENTS',
+  ].filter((name) => Boolean(process.env[name])),
 };
 
 config.demoMode = !config.stripeSecretKey;

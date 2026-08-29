@@ -18,7 +18,11 @@ app.disable('x-powered-by');
 // on affiche precisement ce qu'il faut definir.
 if (config.errors.length) {
   app.use((req, res) => {
-    res.status(503).send(views.configErrorPage({ missing: config.errors }));
+    res.status(503).send(views.configErrorPage({
+      missing: config.errors,
+      env: config.vercelEnv,
+      present: config.presentVars,
+    }));
   });
 } else {
   app.use(express.urlencoded({ extended: false, limit: '64kb' }));

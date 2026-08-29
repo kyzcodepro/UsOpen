@@ -144,8 +144,12 @@ function messagePage({ title, heading, message, link }) {
   });
 }
 
-function configErrorPage({ missing }) {
+function configErrorPage({ missing, env, present }) {
   const rows = missing.map((name) => `<li><code>${escape(name)}</code></li>`).join('');
+  const seen = present && present.length
+    ? `<p class="note">Variables effectivement reçues par cette fonction :<br>${
+        present.map((name) => `<code>${escape(name)}</code>`).join(' ')}</p>`
+    : `<p class="note"><strong>Cette fonction ne reçoit aucune variable.</strong> Si vous les avez définies, elles le sont pour un autre environnement que celui-ci, ou le déploiement date d'avant leur ajout.</p>`;
   return layout({
     title: 'Configuration incomplète',
     bodyClass: 'public',
@@ -153,7 +157,9 @@ function configErrorPage({ missing }) {
   <h1 class="logo">Configuration incomplète</h1>
   <p class="baseline">L'application ne peut pas démarrer tant que ces variables d'environnement ne sont pas définies :</p>
   <ul class="missing">${rows}</ul>
-  <p class="note">Sur Vercel : Settings → Environment Variables, puis redéployez.</p>
+  ${env ? `<p class="note">Environnement de ce déploiement : <code>${escape(env)}</code></p>` : ''}
+  ${seen}
+  <p class="note">Sur Vercel : Settings → Environment Variables. Cochez les trois environnements (Production, Preview, Development), puis redéployez.</p>
 </main>`,
   });
 }
