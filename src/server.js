@@ -14,6 +14,24 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
+// L'apex et le sous-domaine www servent la meme application. Sans redirection,
+// un acheteur qui paie depuis www recoit son cookie d'acces sur ce hote-la :
+// revenu sur l'apex, il a paye sans plus rien voir. On ramene donc tout sur un
+// seul hote, avant meme le controle de configuration : une variable manquante
+// ne doit pas laisser deux domaines vivre leur vie.
+//
+// Seules les lectures sont redirigees : le webhook Stripe ne suit pas les
+// redirections, et un POST redirige perdrait sa signature.
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const forwarded = req.get('x-forwarded-host');
+  const host = String(forwarded ? forwarded.split(',')[0] : req.get('host') || '').trim();
+  // On ne reconstruit une URL qu'a partir d'un hote de forme connue : l'en-tete
+  // Host vient du client, il ne doit jamais devenir une redirection ouverte.
+  if (!/^www\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?::\d+)?$/i.test(host)) return next();
+  res.redirect(301, `${req.protocol}://${host.slice(4)}${req.originalUrl}`);
+});
+
 // Une variable d'environnement manquante donnerait sinon une 500 opaque :
 // on affiche precisement ce qu'il faut definir.
 if (config.errors.length) {
