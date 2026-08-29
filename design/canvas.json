@@ -1,0 +1,32 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Direction retenue — Presse" },
+    { "id": "page-2", "name": "Autres directions" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1100, "h": 1160, "page": "page-1", "title": "Accueil — le pronostic sous pli" },
+    { "file": "Debloque.dc.html", "x": 1220, "y": 0, "w": 1100, "h": 1000, "page": "page-1", "title": "Après paiement — le pronostic" },
+    { "file": "Mobile.dc.html", "x": 2440, "y": 0, "w": 390, "h": 1080, "page": "page-1", "title": "Accueil — mobile 390 px" },
+    { "file": "Admin.dc.html", "x": 0, "y": 1300, "w": 1240, "h": 1340, "page": "page-1", "title": "Rédaction — publier l'édition" },
+    { "file": "DirectionB.dc.html", "x": 0, "y": 0, "w": 760, "h": 940, "page": "page-2", "title": "B — Le bordereau" },
+    { "file": "DirectionC.dc.html", "x": 880, "y": 0, "w": 760, "h": 790, "page": "page-2", "title": "C — Le terminal" }
+  ],
+  "annotations": [
+    {
+      "id": "note-presse",
+      "x": 0,
+      "y": -230,
+      "w": 560,
+      "text": "DIRECTION A — LE JOURNAL\n\nUn quotidien de pronostics plutôt qu'une app. Papier journal, Bodoni pour les titres, Archivo pour le texte, un seul rouge d'encre.\n\nL'idée qui porte le tout : le pronostic est SOUS PLI. Pas un flou CSS, un pavé noir imprimé par-dessus la sélection, avec le prix dedans. Le prix est aussi affiché en haut comme le prix au numéro d'un journal.\n\nRien d'inventé côté données : tout ce qui est affiché existe déjà dans l'app."
+    },
+    {
+      "id": "note-autres",
+      "x": 0,
+      "y": -190,
+      "w": 620,
+      "page": "page-2",
+      "text": "DEUX AUTRES PISTES, VOLONTAIREMENT DIFFÉRENTES\n\nElles ne sont pas au même niveau de finition : ce sont des directions à trancher, pas des maquettes finies. Dites-moi laquelle vous parle et je la déroule sur les trois écrans comme la direction A.\n\nCes deux-là explorent des axes opposés : l'objet physique (B) et l'instrument de mesure (C)."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

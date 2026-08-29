@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&display=swap">
+  <style>
+    body {
+      --ser: "Bodoni Moda", Didot, "Bodoni MT", Georgia, serif;
+      --sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      margin: 0; background: #f3f0e7; color: #17150f;
+      font-family: var(--sans); -webkit-font-smoothing: antialiased;
+    }
+    a { color: #17150f; text-decoration: none; border-bottom: 1px solid #c9c2ae; }
+    a:hover { color: #b3301c; border-bottom-color: #b3301c; }
+  </style>
+</helmet>
+
+<div style="min-height: 100%; background: #f3f0e7;">
+
+  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 13px 20px; border-bottom: 1px solid #17150f; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">
+    <span>Sam. 29 août 2026</span>
+    <span>Le numéro : 1,00 €</span>
+  </div>
+
+  <header style="padding: 26px 20px 0; text-align: center;">
+    <h1 style="font-family: var(--ser); font-weight: 800; font-size: 38px; line-height: 0.96; letter-spacing: -0.015em; margin: 0;">Le Pari<br>du Jour</h1>
+    <div style="border-top: 3px solid #17150f; border-bottom: 1px solid #17150f; height: 4px; margin: 16px 0 0;"></div>
+    <p style="margin: 13px 0 0; font-size: 13px; font-style: italic; color: #57503f; font-family: var(--ser); line-height: 1.4;">Un seul pronostic par jour, sélectionné le matin même et argumenté.</p>
+  </header>
+
+  <main style="padding: 24px 20px 0;">
+
+    <section style="border: 2px solid #17150f; background: #fbf9f2;">
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #17150f; color: #f3f0e7; padding: 9px 16px; font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">
+        <span>Le pronostic du jour</span>
+        <span style="color: #a9a291;">29.08</span>
+      </div>
+
+      <div style="padding: 22px 20px 0;">
+        <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">La rencontre</span>
+        <h2 style="font-family: var(--ser); font-weight: 700; font-size: 34px; line-height: 1.04; letter-spacing: -0.02em; margin: 8px 0 0;">Paris&#8209;SG <span style="color: #b3301c;">—</span> Marseille</h2>
+
+        <div style="display: flex; align-items: flex-end; gap: 26px; margin-top: 22px; border-top: 1px solid #d5cfbc; padding-top: 16px;">
+          <div>
+            <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Cote</span>
+            <div style="font-family: var(--ser); font-size: 34px; font-weight: 700; line-height: 1; margin-top: 3px;">1,85</div>
+          </div>
+          <div style="flex-grow: 1;">
+            <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Confiance</span>
+            <div style="display: flex; gap: 4px; align-items: flex-end; margin-top: 9px;">
+              <span style="display: block; width: 13px; height: 19px; background: #17150f;"></span>
+              <span style="display: block; width: 13px; height: 19px; background: #17150f;"></span>
+              <span style="display: block; width: 13px; height: 19px; background: #17150f;"></span>
+              <span style="display: block; width: 13px; height: 19px; background: #17150f;"></span>
+              <span style="display: block; width: 13px; height: 19px; background: #dcd6c4;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">La sélection</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 9px; background: #17150f; color: #f3f0e7; padding: 17px 16px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; line-height: 1.3;">Sous pli jusqu'au<br>paiement</span>
+            <span style="font-family: var(--ser); font-size: 22px; font-weight: 600;">1,00 €</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding: 20px;">
+        <button type="button" style="display: block; width: 100%; background: #b3301c; color: #fbf9f2; border: 0; padding: 19px 12px; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1.35; cursor: pointer;">Décacheter le pronostic<br>1,00 €</button>
+        <p style="margin: 12px 0 0; text-align: center; font-size: 12px; line-height: 1.5; color: #57503f;">Paiement unique. Pas d'abonnement.<br>Accès valable 24 heures.</p>
+      </div>
+
+    </section>
+
+    <section style="margin-top: 30px; border-top: 3px solid #17150f; display: flex; flex-direction: column; gap: 0;">
+      <div style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #c9c2ae;">
+        <span style="font-family: var(--ser); font-size: 24px; font-weight: 700; line-height: 1; flex-shrink: 0; width: 34px;">01</span>
+        <div>
+          <h3 style="margin: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Un pari, une fois par jour</h3>
+          <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #57503f;">Une rencontre, une sélection, publiée le matin même.</p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #c9c2ae;">
+        <span style="font-family: var(--ser); font-size: 24px; font-weight: 700; line-height: 1; flex-shrink: 0; width: 34px;">02</span>
+        <div>
+          <h3 style="margin: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Le raisonnement, pas juste le tuyau</h3>
+          <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #57503f;">La cote, le bookmaker et l'analyse qui va avec.</p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #c9c2ae;">
+        <span style="font-family: var(--ser); font-size: 24px; font-weight: 700; line-height: 1; flex-shrink: 0; width: 34px;">03</span>
+        <div>
+          <h3 style="margin: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Un euro, le jour où ça vous parle</h3>
+          <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #57503f;">Rien n'est prélevé le lendemain.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer style="margin-top: 26px; border-top: 1px solid #17150f; padding: 16px 20px 34px; display: flex; flex-direction: column; gap: 10px; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6f6858;">
+    <a href="#">Espace rédaction</a>
+    <span style="line-height: 1.6;">Jouer comporte des risques : endettement, isolement, dépendance. Interdit aux moins de 18 ans.</span>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

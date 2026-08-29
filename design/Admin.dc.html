@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&display=swap">
+  <style>
+    body {
+      --ser: "Bodoni Moda", Didot, "Bodoni MT", Georgia, serif;
+      --sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      margin: 0; background: #f3f0e7; color: #17150f;
+      font-family: var(--sans); -webkit-font-smoothing: antialiased;
+    }
+    a { color: #17150f; text-decoration: none; border-bottom: 1px solid #c9c2ae; }
+    a:hover { color: #b3301c; border-bottom-color: #b3301c; }
+    input, textarea { font-family: var(--sans); color: #17150f; }
+    input:focus, textarea:focus { outline: 2px solid #b3301c; outline-offset: 3px; }
+  </style>
+</helmet>
+
+<div style="min-height: 100%; background: #f3f0e7;">
+
+  <header style="display: flex; justify-content: space-between; align-items: center; gap: 24px; background: #17150f; color: #f3f0e7; padding: 15px 56px;">
+    <span style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: var(--ser); font-size: 21px; font-weight: 800; letter-spacing: -0.01em;">Le Pari du Jour</span>
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #a9a291;">Rédaction</span>
+    </span>
+    <nav style="display: flex; align-items: center; gap: 28px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;">
+      <a href="#" style="color: #f3f0e7; border-bottom-color: #4a463c;">Voir le site</a>
+      <a href="#" style="color: #a9a291; border-bottom-color: #4a463c;">Déconnexion</a>
+    </nav>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-bottom: 3px solid #17150f; background: #ebe7db;">
+    <div style="padding: 20px 26px;">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Ventes du jour</span>
+      <div style="font-family: var(--ser); font-size: 40px; font-weight: 700; line-height: 1; margin-top: 6px;">24</div>
+    </div>
+    <div style="padding: 20px 26px; border-left: 1px solid #d5cfbc;">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Recette du jour</span>
+      <div style="font-family: var(--ser); font-size: 40px; font-weight: 700; line-height: 1; margin-top: 6px;">24,00 €</div>
+    </div>
+    <div style="padding: 20px 26px; border-left: 1px solid #d5cfbc;">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Ventes totales</span>
+      <div style="font-family: var(--ser); font-size: 40px; font-weight: 700; line-height: 1; margin-top: 6px;">1 316</div>
+    </div>
+    <div style="padding: 20px 26px; border-left: 1px solid #d5cfbc;">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Recette totale</span>
+      <div style="font-family: var(--ser); font-size: 40px; font-weight: 700; line-height: 1; margin-top: 6px;">1 316,00 €</div>
+    </div>
+  </div>
+
+  <main style="padding: 40px 56px 0;">
+
+    <div style="display: flex; align-items: baseline; gap: 18px;">
+      <h1 style="font-family: var(--ser); font-size: 34px; font-weight: 700; margin: 0; letter-spacing: -0.01em;">Bulletin de composition</h1>
+      <span style="flex-grow: 1; border-top: 1px solid #c9c2ae;"></span>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6f6858;">Édition du samedi 29 août</span>
+    </div>
+
+    <form style="margin-top: 26px; border: 2px solid #17150f; background: #fbf9f2; padding: 32px 34px 34px;">
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px;">
+        <label style="display: block;">
+          <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Date de parution</span>
+          <input type="text" value="29 / 08 / 2026" style="width: 100%; box-sizing: border-box; margin-top: 9px; padding: 9px 0; border: 0; border-bottom: 1px solid #17150f; background: transparent; font-size: 18px; font-weight: 500;">
+        </label>
+        <label style="display: block; grid-column: span 2;">
+          <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">La rencontre</span>
+          <input type="text" value="Paris-SG — Marseille" style="width: 100%; box-sizing: border-box; margin-top: 9px; padding: 9px 0; border: 0; border-bottom: 1px solid #17150f; background: transparent; font-size: 18px; font-weight: 500;">
+        </label>
+      </div>
+
+      <label style="display: block; margin-top: 28px;">
+        <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">La sélection</span>
+        <input type="text" value="Victoire du PSG et plus de 2,5 buts" style="width: 100%; box-sizing: border-box; margin-top: 9px; padding: 11px 0; border: 0; border-bottom: 2px solid #17150f; background: transparent; font-family: var(--ser); font-size: 30px; font-weight: 700;">
+      </label>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 28px;">
+        <label style="display: block;">
+          <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Cote</span>
+          <input type="text" value="1,85" style="width: 100%; box-sizing: border-box; margin-top: 9px; padding: 9px 0; border: 0; border-bottom: 1px solid #17150f; background: transparent; font-family: var(--ser); font-size: 24px; font-weight: 700;">
+        </label>
+        <label style="display: block;">
+          <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Bookmaker</span>
+          <input type="text" value="Winamax" style="width: 100%; box-sizing: border-box; margin-top: 9px; padding: 9px 0; border: 0; border-bottom: 1px solid #17150f; background: transparent; font-size: 18px; font-weight: 500;">
+        </label>
+        <div>
+          <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Confiance</span>
+          <div style="display: flex; gap: 0; margin-top: 11px; border: 1px solid #17150f; width: fit-content;">
+            <span style="display: block; width: 40px; height: 34px; background: #17150f;"></span>
+            <span style="display: block; width: 40px; height: 34px; background: #17150f; border-left: 1px solid #fbf9f2;"></span>
+            <span style="display: block; width: 40px; height: 34px; background: #17150f; border-left: 1px solid #fbf9f2;"></span>
+            <span style="display: block; width: 40px; height: 34px; background: #17150f; border-left: 1px solid #fbf9f2;"></span>
+            <span style="display: block; width: 40px; height: 34px; background: transparent; border-left: 1px solid #17150f;"></span>
+          </div>
+        </div>
+      </div>
+
+      <label style="display: block; margin-top: 28px;">
+        <span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">L'analyse</span>
+        <textarea rows="6" style="width: 100%; box-sizing: border-box; margin-top: 9px; padding: 14px 16px; border: 1px solid #17150f; background: #f3f0e7; font-size: 15px; line-height: 1.6; resize: vertical;">Le Paris-SG a marqué au moins deux buts sur chacune de ses cinq dernières réceptions en championnat, et récupère Dembélé de retour de suspension.</textarea>
+      </label>
+
+      <div style="display: flex; align-items: center; gap: 24px; margin-top: 30px; border-top: 1px solid #d5cfbc; padding-top: 26px;">
+        <button type="button" style="background: #17150f; color: #fbf9f2; border: 0; padding: 18px 34px; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer;">Mettre l'édition en ligne</button>
+        <span style="font-size: 13px; color: #6f6858;">Une seule édition par date. Republier remplace celle du 29 août.</span>
+      </div>
+
+    </form>
+
+    <div style="display: flex; align-items: baseline; gap: 18px; margin-top: 48px;">
+      <h2 style="font-family: var(--ser); font-size: 26px; font-weight: 700; margin: 0;">Éditions parues</h2>
+      <span style="flex-grow: 1; border-top: 1px solid #c9c2ae;"></span>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-top: 18px;">
+      <thead>
+        <tr style="border-top: 3px solid #17150f; border-bottom: 1px solid #17150f;">
+          <th style="text-align: left; padding: 11px 14px 11px 0; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Date</th>
+          <th style="text-align: left; padding: 11px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Rencontre</th>
+          <th style="text-align: left; padding: 11px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Sélection</th>
+          <th style="text-align: right; padding: 11px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Cote</th>
+          <th style="text-align: right; padding: 11px 0 11px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6f6858;">Ventes</th>
+          <th style="width: 1px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #d5cfbc;">
+          <td style="padding: 15px 14px 15px 0; font-size: 14px; font-weight: 600; white-space: nowrap;">29 août</td>
+          <td style="padding: 15px 14px; font-size: 15px;">Paris-SG — Marseille</td>
+          <td style="padding: 15px 14px; font-size: 15px; color: #57503f;">Victoire du PSG et plus de 2,5 buts</td>
+          <td style="padding: 15px 14px; text-align: right; font-family: var(--ser); font-size: 18px; font-weight: 700;">1,85</td>
+          <td style="padding: 15px 0 15px 14px; text-align: right; font-size: 15px; font-weight: 600;">24</td>
+          <td style="padding: 15px 0 15px 22px; white-space: nowrap;">
+            <span style="display: flex; gap: 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">
+              <a href="#" style="border-bottom-color: #c9c2ae;">Corriger</a>
+              <a href="#" style="color: #b3301c; border-bottom-color: #e0bab2;">Retirer</a>
+            </span>
+          </td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d5cfbc;">
+          <td style="padding: 15px 14px 15px 0; font-size: 14px; font-weight: 600; white-space: nowrap;">28 août</td>
+          <td style="padding: 15px 14px; font-size: 15px;">Lyon — Lille</td>
+          <td style="padding: 15px 14px; font-size: 15px; color: #57503f;">Les deux équipes marquent</td>
+          <td style="padding: 15px 14px; text-align: right; font-family: var(--ser); font-size: 18px; font-weight: 700;">1,62</td>
+          <td style="padding: 15px 0 15px 14px; text-align: right; font-size: 15px; font-weight: 600;">31</td>
+          <td style="padding: 15px 0 15px 22px; white-space: nowrap;">
+            <span style="display: flex; gap: 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">
+              <a href="#" style="border-bottom-color: #c9c2ae;">Corriger</a>
+              <a href="#" style="color: #b3301c; border-bottom-color: #e0bab2;">Retirer</a>
+            </span>
+          </td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d5cfbc;">
+          <td style="padding: 15px 14px 15px 0; font-size: 14px; font-weight: 600; white-space: nowrap;">27 août</td>
+          <td style="padding: 15px 14px; font-size: 15px;">Monaco — Nice</td>
+          <td style="padding: 15px 14px; font-size: 15px; color: #57503f;">Monaco gagne sans encaisser</td>
+          <td style="padding: 15px 14px; text-align: right; font-family: var(--ser); font-size: 18px; font-weight: 700;">2,40</td>
+          <td style="padding: 15px 0 15px 14px; text-align: right; font-size: 15px; font-weight: 600;">19</td>
+          <td style="padding: 15px 0 15px 22px; white-space: nowrap;">
+            <span style="display: flex; gap: 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">
+              <a href="#" style="border-bottom-color: #c9c2ae;">Corriger</a>
+              <a href="#" style="color: #b3301c; border-bottom-color: #e0bab2;">Retirer</a>
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+  </main>
+
+  <div style="height: 56px;"></div>
+
+</div>
+</x-dc>
+</body>
+</html>
