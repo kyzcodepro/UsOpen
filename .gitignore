@@ -8,3 +8,5 @@ data/secret.key
 # Canevas de design généré (2,5 Mo) — se régénère depuis les .dc.html
 design/*.html
 !design/*.dc.html
+
+data/uploads/

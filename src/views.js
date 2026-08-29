@@ -60,6 +60,13 @@ function betCard(bet, { blurred }) {
     <div><span class="label">Confiance</span><span class="dots">${dots}</span></div>
   </div>
   ${bet.analysis ? `<div class="analysis"><span class="label">Analyse</span><p>${escape(bet.analysis).replace(/\n/g, '<br>')}</p></div>` : ''}
+  ${!blurred && bet.photo ? `<figure class="shot">
+    <span class="label">Le ticket</span>
+    <a href="/pari/photo" target="_blank" rel="noopener">
+      <img src="/pari/photo" alt="Photo du ticket de pari">
+    </a>
+    <figcaption>Cliquez pour l'ouvrir en grand.</figcaption>
+  </figure>` : ''}
 </article>`;
 }
 
@@ -70,6 +77,7 @@ function homePage({ bet, hasAccess, error }) {
           <span class="tag">Pari du jour · ${escape(formatDate(bet.date))}</span>
           <p class="blur">${escape(bet.match)}</p>
           <p class="blur small">${escape(bet.pick)} — cote ${escape(bet.odds)}</p>
+          ${bet.photo ? '<p class="joined">Photo du ticket jointe</p>' : ''}
         </div>
         <div class="lock">🔒</div>
       </div>`
@@ -196,7 +204,7 @@ function adminDashboard({ bet, bets, stats, today, flash, error }) {
 
   <section class="card">
     <h2>${bet ? 'Modifier le pari' : 'Publier un pari'}</h2>
-    <form method="post" action="/admin/bets" class="form">
+    <form method="post" action="/admin/bets" class="form" enctype="multipart/form-data">
       <label>Date
         <input type="date" name="date" value="${value('date') || escape(today)}" required>
       </label>
@@ -220,6 +228,18 @@ function adminDashboard({ bet, bets, stats, today, flash, error }) {
       <label>Analyse
         <textarea name="analysis" rows="6" placeholder="Pourquoi ce pari…" maxlength="4000">${value('analysis')}</textarea>
       </label>
+      <div class="photo-field">
+        <span class="label">Photo du ticket (facultatif)</span>
+        ${bet && bet.photo ? `<div class="photo-current">
+          <img src="/admin/bets/${escape(bet.id)}/photo" alt="Photo actuelle du ticket">
+          <div>
+            <p class="muted">Photo enregistrée — ${Math.round(bet.photo.size / 1024)} Ko. Elle n'est visible qu'après paiement.</p>
+            <label class="inline"><input type="checkbox" name="removePhoto" value="1"> Retirer la photo</label>
+          </div>
+        </div>` : ''}
+        <input type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+        <p class="muted">JPEG, PNG ou WebP, 5 Mo maximum.${bet && bet.photo ? ' En choisir une nouvelle remplace l’actuelle.' : ''}</p>
+      </div>
       <button class="btn" type="submit">${bet ? 'Mettre à jour' : 'Publier'}</button>
     </form>
   </section>

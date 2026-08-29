@@ -36,6 +36,10 @@ function getBetByDate(date) {
   return read().bets.find((bet) => bet.date === date) || null;
 }
 
+function getBetById(id) {
+  return read().bets.find((bet) => bet.id === id) || null;
+}
+
 function getTodayBet() {
   return getBetByDate(today());
 }
@@ -58,6 +62,9 @@ function upsertBet(input) {
     bookmaker: input.bookmaker,
     confidence: input.confidence,
     analysis: input.analysis,
+    // { file, mime, size } ou null. L'appelant fournit la valeur finale :
+    // le store ne touche pas aux fichiers sur disque.
+    photo: input.photo || null,
     createdAt: index === -1 ? now : db.bets[index].createdAt,
     updatedAt: now,
   };
@@ -67,12 +74,14 @@ function upsertBet(input) {
   return bet;
 }
 
+// Renvoie le pari supprime pour que l'appelant puisse effacer sa photo.
 function deleteBet(id) {
   const db = read();
-  const before = db.bets.length;
+  const removed = db.bets.find((bet) => bet.id === id) || null;
+  if (!removed) return null;
   db.bets = db.bets.filter((bet) => bet.id !== id);
-  if (db.bets.length !== before) write(db);
-  return db.bets.length !== before;
+  write(db);
+  return removed;
 }
 
 function recordOrder(order) {
@@ -114,6 +123,7 @@ function stats() {
 module.exports = {
   today,
   getBetByDate,
+  getBetById,
   getTodayBet,
   listBets,
   upsertBet,

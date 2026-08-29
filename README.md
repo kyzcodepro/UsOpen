@@ -9,12 +9,16 @@ avec une interface d'administration pour publier ce pronostic.
 - Le pari du jour est affiché en aperçu flouté, avec la date.
 - Bouton « Débloquer pour 1,00 € » → paiement Stripe Checkout.
 - Après paiement, redirection vers `/pari` qui affiche le pronostic complet
-  (match, pronostic, cote, bookmaker, niveau de confiance, analyse).
+  (match, pronostic, cote, bookmaker, niveau de confiance, analyse) et, s'il y en
+  a une, la photo du ticket.
+- La photo est annoncée sur l'accueil (« Photo du ticket jointe ») mais jamais
+  servie avant paiement.
 - L'accès est mémorisé dans un cookie signé, valable 24 h et lié à la date du pari payé.
 
 **Côté admin** (`/admin`)
 - Connexion par mot de passe (limitée à 8 tentatives par IP / 15 min).
-- Formulaire pour publier ou modifier le pari du jour (un pari par date).
+- Formulaire pour publier ou modifier le pari du jour (un pari par date),
+  avec envoi facultatif d'une photo du ticket (JPEG, PNG ou WebP, 5 Mo max).
 - Historique des paris publiés, avec édition et suppression.
 - Compteurs de ventes et de chiffre d'affaires (jour et total).
 
@@ -61,13 +65,31 @@ src/
   store.js        persistance JSON (data/db.json), écriture atomique
   auth.js         cookies signés HMAC : accès payant et session admin
   payment.js      Stripe Checkout (et son équivalent en mode démo)
+  uploads.js      réception des photos : signature vérifiée, stockage hors public/
   views.js        rendu HTML (échappement systématique)
   routes/
     public.js     accueil, paiement, page du pari
     admin.js      connexion, publication, historique
 public/styles.css
 data/db.json      base de données (créée au premier lancement, non versionnée)
+data/uploads/     photos des tickets, hors de public/ (non versionné)
 ```
+
+## La photo du ticket
+
+Elle est traitée comme du contenu payant, pas seulement masquée à l'écran :
+
+- les fichiers sont écrits dans `data/uploads/`, **hors de `public/`** : rien
+  n'est servi en statique et l'URL n'est pas devinable ;
+- ils ne sortent que par `GET /pari/photo`, qui exige un accès payé pour le pari
+  du jour, et répond `403` sinon. L'accueil ne contient pas cette URL ;
+- la réponse porte `Cache-Control: private, no-store` pour qu'aucun cache
+  partagé ne la conserve ;
+- le type est déduit de la **signature du fichier**, pas de ce que déclare le
+  navigateur : un script renommé en `.png` est refusé ;
+- le nom sur disque est un UUID que nous choisissons ; le nom d'origine n'est
+  jamais utilisé ;
+- remplacer une photo, la retirer ou supprimer le pari efface l'ancien fichier.
 
 ## Notes
 

@@ -5,6 +5,7 @@ const store = require('../store');
 const views = require('../views');
 const auth = require('../auth');
 const payment = require('../payment');
+const uploads = require('../uploads');
 
 const router = express.Router();
 
@@ -24,6 +25,22 @@ router.get('/pari', (req, res) => {
     return res.redirect('/?erreur=' + encodeURIComponent('Accès expiré ou non payé pour le pari du jour.'));
   }
   res.send(views.betPage({ bet }));
+});
+
+// La photo n'est jamais servie en statique : elle passe par ici, et seulement
+// pour un visiteur qui a paye le pari du jour.
+router.get('/pari/photo', (req, res) => {
+  const bet = store.getTodayBet();
+  if (!bet || !bet.photo) return res.status(404).end();
+  if (!auth.hasAccess(req, bet.date)) return res.status(403).end();
+
+  const full = uploads.resolve(bet.photo);
+  if (!full) return res.status(404).end();
+
+  res.set('Cache-Control', 'private, no-store');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.type(bet.photo.mime);
+  res.sendFile(full);
 });
 
 // Demarre le paiement pour le pari du jour.

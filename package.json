@@ -18,6 +18,7 @@
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "multer": "^2.3.0",
     "stripe": "^22.6.0"
   },
   "private": true,
