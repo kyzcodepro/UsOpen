@@ -1,0 +1,26 @@
+name: Tests
+
+# Sur les propositions de fusion pour qu'aucune ne soit fusionnee sans avoir
+# ete verifiee, et sur la branche de production pour que sa regression ne soit
+# pas decouverte par les visiteurs.
+on:
+  pull_request:
+  push:
+    branches: [claude/payment-page-admin-interface-j42320]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # La meme version que celle declaree dans package.json : une suite
+          # verte sur une autre ne dirait rien de la production.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
