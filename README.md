@@ -24,12 +24,12 @@ avec une interface d'administration pour publier ce pronostic.
 
 ## Démarrage en local
 
-Il faut un PostgreSQL. Le plus simple est de pointer sur la base de
-développement de votre fournisseur, ou sur un Postgres local :
+La base est [Turso](https://turso.tech) (libSQL). En local, inutile de créer
+quoi que ce soit en ligne : le même client lit un fichier SQLite.
 
 ```bash
 npm install
-cp .env.example .env    # renseignez au moins DATABASE_URL
+cp .env.example .env    # TURSO_DATABASE_URL=file:data/local.db suffit
 npm start               # http://localhost:3000
 ```
 
@@ -46,16 +46,25 @@ Si une variable indispensable manque, l'application ne plante pas : elle répond
 L'application tourne en fonction serverless : `api/index.js` exporte
 l'application Express et `vercel.json` y renvoie toutes les requêtes.
 
-1. Créez une base Postgres (Vercel Postgres, Neon ou Supabase) et récupérez sa
-   chaîne de connexion **poolée**.
+1. Créez la base et son jeton :
+
+   ```bash
+   turso db create pari-du-jour
+   turso db show pari-du-jour --url      # → libsql://...
+   turso db tokens create pari-du-jour   # → le jeton
+   ```
+
 2. Dans le projet Vercel, Settings → Environment Variables, définissez :
-   `DATABASE_URL`, `ADMIN_PASSWORD`, `APP_SECRET`, `BASE_URL`
-   (et `STRIPE_SECRET_KEY` pour encaisser réellement).
+   `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `ADMIN_PASSWORD`, `APP_SECRET`,
+   `BASE_URL` (et `STRIPE_SECRET_KEY` pour encaisser réellement).
 3. Redéployez.
+
+libSQL parle HTTP : il n'y a pas de connexion à maintenir ni de pool à
+dimensionner, ce qui évite l'écueil classique des bases SQL en serverless.
 
 Rien n'est écrit sur le disque en production : le disque de Vercel est en
 lecture seule et chaque instance est jetable. La base de données et les photos
-vivent dans PostgreSQL, le secret de signature et le mot de passe admin dans
+vivent dans Turso, le secret de signature et le mot de passe admin dans
 les variables d'environnement — c'est pourquoi `APP_SECRET` est obligatoire :
 sans lui, chaque instance signerait les cookies différemment et les accès payés
 seraient invalides d'une requête à l'autre.
@@ -64,12 +73,14 @@ seraient invalides d'une requête à l'autre.
 
 | Variable | Rôle |
 |---|---|
-| `DATABASE_URL` | **Obligatoire.** Connexion PostgreSQL (endpoint poolé). `POSTGRES_URL` est accepté aussi |
+| `TURSO_DATABASE_URL` | **Obligatoire.** `libsql://…` en production, `file:data/local.db` en local. `DATABASE_URL` est accepté aussi |
+| `TURSO_AUTH_TOKEN` | Jeton Turso. Obligatoire dès que l'URL est distante |
 | `ADMIN_PASSWORD` | Mot de passe de `/admin`. Obligatoire en production ; généré aléatoirement en local |
 | `APP_SECRET` | Secret de signature des cookies. Obligatoire en production ; persisté dans `data/secret.key` en local |
 | `BASE_URL` | URL publique, utilisée pour les redirections Stripe |
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe. Si absente → mode démo |
 | `PRICE_CENTS` | Prix en centimes (défaut `100`, soit 1,00 €) |
+| `MAX_PHOTO_MB` | Taille maximale d'une photo, en Mo (défaut `2`) |
 | `PORT` | Port d'écoute en local (ignoré en serverless) |
 
 ## Brancher Stripe
@@ -91,7 +102,7 @@ vercel.json       renvoie toutes les requêtes vers la fonction
 src/
   server.js       application Express
   config.js       configuration, .env, contrôle des variables obligatoires
-  db.js           pool PostgreSQL + création du schéma à la demande
+  db.js           client libSQL + création du schéma à la demande
   store.js        accès aux paris et aux commandes (SQL)
   auth.js         cookies signés HMAC : accès payant et session admin
   payment.js      Stripe Checkout (et son équivalent en mode démo)
@@ -107,8 +118,8 @@ public/styles.css
 
 Elle est traitée comme du contenu payant, pas seulement masquée à l'écran :
 
-- les octets vivent dans la colonne `photo_data` de la table `bets` : rien
-  n'est servi en statique et l'URL n'est pas devinable ;
+- les octets vivent dans la colonne `photo_data` (BLOB) de la table `bets` :
+  rien n'est servi en statique et l'URL n'est pas devinable ;
 - ils ne sortent que par `GET /pari/photo`, qui exige un accès payé pour le pari
   du jour, et répond `403` sinon. L'accueil ne contient pas cette URL ;
 - la réponse porte `Cache-Control: private, no-store` pour qu'aucun cache
@@ -126,5 +137,9 @@ Elle est traitée comme du contenu payant, pas seulement masquée à l'écran :
 - La limitation des tentatives de connexion admin est en mémoire, donc par
   instance serverless : c'est un garde-fou, pas un rempart. Un mot de passe long
   reste la vraie protection.
-- Les photos sont stockées telles quelles, sans recompression : une photo de 4 Mo
-  sera renvoyée intégralement à chaque acheteur.
+- Les photos sont stockées telles quelles, sans recompression, et transitent par
+  le protocole HTTP de libSQL où un BLOB est encodé en base64 : comptez environ
+  un tiers de plus sur le réseau, à l'écriture comme à **chaque lecture**. D'où
+  la limite par défaut de 2 Mo, réglable avec `MAX_PHOTO_MB`. Si vous montez
+  beaucoup plus haut, mieux vaut déplacer les photos vers un stockage d'objets
+  et ne garder qu'une référence en base.

@@ -1,52 +1,48 @@
 'use strict';
 
-const { Pool } = require('pg');
+const { createClient } = require('@libsql/client');
 const config = require('./config');
 
-// En serverless chaque instance vit peu de temps et traite une requete a la
-// fois : un petit pool, reutilise entre les invocations a froid, suffit. La
-// chaine de connexion doit pointer vers l'endpoint *poole* du fournisseur.
-let pool = null;
+// libSQL parle HTTP : pas de connexion persistante a gerer, ce qui convient
+// bien au serverless ou chaque instance est jetable.
+let client = null;
 
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: config.databaseUrl,
-      max: 3,
-      idleTimeoutMillis: 10000,
-      connectionTimeoutMillis: 10000,
-      ssl: config.databaseSsl ? { rejectUnauthorized: false } : false,
+function getClient() {
+  if (!client) {
+    client = createClient({
+      url: config.databaseUrl,
+      authToken: config.databaseAuthToken || undefined,
     });
-    pool.on('error', (err) => console.error('[db] connexion inactive perdue :', err.message));
   }
-  return pool;
+  return client;
 }
 
+// `match` est un mot-cle SQLite : la colonne est citee partout.
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS bets (
-  id          uuid PRIMARY KEY,
-  bet_date    date NOT NULL UNIQUE,
-  match       text NOT NULL,
-  pick        text NOT NULL,
-  odds        text NOT NULL,
-  bookmaker   text,
-  confidence  smallint NOT NULL DEFAULT 3,
-  analysis    text,
-  photo_data  bytea,
-  photo_mime  text,
-  photo_size  integer,
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  updated_at  timestamptz NOT NULL DEFAULT now()
+  id          TEXT PRIMARY KEY,
+  bet_date    TEXT NOT NULL UNIQUE,
+  "match"     TEXT NOT NULL,
+  pick        TEXT NOT NULL,
+  odds        TEXT NOT NULL,
+  bookmaker   TEXT,
+  confidence  INTEGER NOT NULL DEFAULT 3,
+  analysis    TEXT,
+  photo_data  BLOB,
+  photo_mime  TEXT,
+  photo_size  INTEGER,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS orders (
-  id           uuid PRIMARY KEY,
-  reference    text NOT NULL UNIQUE,
-  provider     text NOT NULL,
-  bet_date     date NOT NULL,
-  amount_cents integer NOT NULL,
-  email        text,
-  created_at   timestamptz NOT NULL DEFAULT now()
+  id           TEXT PRIMARY KEY,
+  reference    TEXT NOT NULL UNIQUE,
+  provider     TEXT NOT NULL,
+  bet_date     TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  email        TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS orders_bet_date_idx ON orders (bet_date);
@@ -58,7 +54,7 @@ let ready = null;
 
 function ensureSchema() {
   if (!ready) {
-    ready = getPool().query(SCHEMA).catch((err) => {
+    ready = getClient().executeMultiple(SCHEMA).catch((err) => {
       ready = null; // on retentera a la prochaine requete
       throw err;
     });
@@ -66,9 +62,9 @@ function ensureSchema() {
   return ready;
 }
 
-async function query(text, params) {
+async function query(sql, args = []) {
   await ensureSchema();
-  return getPool().query(text, params);
+  return getClient().execute({ sql, args });
 }
 
-module.exports = { query, ensureSchema, getPool };
+module.exports = { query, ensureSchema, getClient };

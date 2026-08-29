@@ -67,8 +67,15 @@ function resolveAdminPassword() {
   return { password: generated, generated };
 }
 
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
-if (!databaseUrl) errors.push('DATABASE_URL');
+// Turso fournit une URL libsql:// et un jeton. En local, un simple
+// `file:data/local.db` fait tourner la meme base SQLite sans reseau.
+const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '';
+const databaseAuthToken = process.env.TURSO_AUTH_TOKEN || '';
+if (!databaseUrl) errors.push('TURSO_DATABASE_URL');
+// Une base Turso distante refuse les requetes sans jeton : autant le dire ici.
+if (/^libsql:|^wss:|^https:/.test(databaseUrl) && !databaseAuthToken) {
+  errors.push('TURSO_AUTH_TOKEN');
+}
 
 const admin = resolveAdminPassword();
 
@@ -81,18 +88,16 @@ const config = {
   adminPassword: admin.password,
   generatedAdminPassword: admin.generated,
   databaseUrl,
-  // Les bases managees (Neon, Vercel Postgres, Supabase) exigent TLS ;
-  // un Postgres local, non.
-  databaseSsl: Boolean(databaseUrl)
-    && !/sslmode=disable/.test(databaseUrl)
-    && !/@(localhost|127\.0\.0\.1)[:/]/.test(databaseUrl),
+  databaseAuthToken,
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
   priceCents: Number(process.env.PRICE_CENTS) || 100,
   currency: 'eur',
   // Duree de validite de l'acces achete (24 h).
   accessTtlMs: 24 * 60 * 60 * 1000,
-  // Taille maximale d'une photo de ticket.
-  maxPhotoBytes: 5 * 1024 * 1024,
+  // Taille maximale d'une photo de ticket. Elle transite par le protocole
+  // HTTP de libSQL, encodee en base64 : une photo pese environ un tiers de
+  // plus sur le reseau, a l'ecriture comme a chaque lecture.
+  maxPhotoBytes: Math.round((Number(process.env.MAX_PHOTO_MB) || 2) * 1024 * 1024),
   errors,
   warnings,
 };

@@ -55,7 +55,7 @@ if (require.main === module) {
     console.log(`▶ Le pari du jour — http://localhost:${config.port}`);
     console.log(`  Admin      : ${config.baseUrl}/admin`);
     console.log(`  Paiement   : ${config.demoMode ? 'MODE DÉMO (aucune clé Stripe)' : 'Stripe'}`);
-    console.log(`  Base       : ${config.databaseUrl ? 'PostgreSQL' : 'NON CONFIGURÉE'}`);
+    console.log(`  Base       : ${config.databaseUrl ? 'libSQL — ' + config.databaseUrl.replace(/\?.*$/, '') : 'NON CONFIGURÉE'}`);
     if (config.errors.length) {
       console.log(`  ⚠ Variables manquantes : ${config.errors.join(', ')}`);
     }

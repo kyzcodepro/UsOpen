@@ -8,34 +8,45 @@ function today() {
   return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 }
 
-// La colonne est de type `date` : on la lit en texte pour eviter que le driver
-// ne la convertisse en Date et ne decale le jour selon le fuseau du serveur.
 const BET_COLUMNS = `
   id,
-  to_char(bet_date, 'YYYY-MM-DD') AS date,
-  match, pick, odds, bookmaker, confidence, analysis,
+  bet_date AS date,
+  "match" AS matchLabel,
+  pick, odds, bookmaker, confidence, analysis,
   photo_mime, photo_size,
-  created_at AS "createdAt",
-  updated_at AS "updatedAt"
+  created_at AS createdAt,
+  updated_at AS updatedAt
 `;
 
+// Les lignes libSQL exposent aussi des index numeriques : on recopie
+// explicitement les champs attendus plutot que d'etaler l'objet.
 function toBet(row) {
   if (!row) return null;
-  const bet = { ...row };
-  bet.photo = row.photo_mime ? { mime: row.photo_mime, size: row.photo_size } : null;
-  delete bet.photo_mime;
-  delete bet.photo_size;
-  return bet;
+  return {
+    id: row.id,
+    date: row.date,
+    match: row.matchLabel,
+    pick: row.pick,
+    odds: row.odds,
+    bookmaker: row.bookmaker,
+    confidence: Number(row.confidence),
+    analysis: row.analysis,
+    photo: row.photo_mime ? { mime: row.photo_mime, size: Number(row.photo_size) } : null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
+const isId = (id) => /^[0-9a-f-]{36}$/i.test(String(id));
+
 async function getBetByDate(date) {
-  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE bet_date = $1`, [date]);
+  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE bet_date = ?`, [date]);
   return toBet(rows[0]);
 }
 
 async function getBetById(id) {
-  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
-  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE id = $1`, [id]);
+  if (!isId(id)) return null;
+  const { rows } = await db.query(`SELECT ${BET_COLUMNS} FROM bets WHERE id = ?`, [id]);
   return toBet(rows[0]);
 }
 
@@ -51,13 +62,13 @@ async function listBets() {
 // Les octets de la photo ne sortent que par ici : ils ne sont jamais charges
 // avec le reste du pari, pour ne pas les trainer dans chaque page rendue.
 async function getBetPhoto(id) {
-  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
+  if (!isId(id)) return null;
   const { rows } = await db.query(
-    'SELECT photo_data, photo_mime FROM bets WHERE id = $1 AND photo_data IS NOT NULL',
+    'SELECT photo_data, photo_mime FROM bets WHERE id = ? AND photo_data IS NOT NULL',
     [id],
   );
   if (!rows[0]) return null;
-  return { data: rows[0].photo_data, mime: rows[0].photo_mime };
+  return { data: Buffer.from(rows[0].photo_data), mime: rows[0].photo_mime };
 }
 
 /**
@@ -66,80 +77,88 @@ async function getBetPhoto(id) {
  * { buffer, mime, size } (remplacer).
  */
 async function upsertBet(input) {
-  const base = [
-    input.date, input.match, input.pick, input.odds,
-    input.bookmaker, input.confidence, input.analysis,
+  const withPhoto = Boolean(input.photo);
+  const args = [
+    crypto.randomUUID(), input.date, input.match, input.pick, input.odds,
+    input.bookmaker || null, input.confidence, input.analysis || null,
   ];
+  if (withPhoto) args.push(input.photo.buffer, input.photo.mime, input.photo.size);
 
-  let photoSet = '';
-  const params = base.slice();
+  let photoUpdate = '';
   if (input.photo === null) {
-    photoSet = ', photo_data = NULL, photo_mime = NULL, photo_size = NULL';
-  } else if (input.photo) {
-    params.push(input.photo.buffer, input.photo.mime, input.photo.size);
-    photoSet = ', photo_data = $8, photo_mime = $9, photo_size = $10';
+    photoUpdate = ', photo_data = NULL, photo_mime = NULL, photo_size = NULL';
+  } else if (withPhoto) {
+    photoUpdate = ', photo_data = excluded.photo_data'
+      + ', photo_mime = excluded.photo_mime, photo_size = excluded.photo_size';
   }
 
-  const insertPhoto = input.photo
-    ? { columns: ', photo_data, photo_mime, photo_size', values: ', $8, $9, $10' }
-    : { columns: '', values: '' };
-
   const { rows } = await db.query(
-    `INSERT INTO bets (id, bet_date, match, pick, odds, bookmaker, confidence, analysis${insertPhoto.columns})
-     VALUES ($${params.length + 1}, $1, $2, $3, $4, $5, $6, $7${insertPhoto.values})
-     ON CONFLICT (bet_date) DO UPDATE SET
-       match = EXCLUDED.match,
-       pick = EXCLUDED.pick,
-       odds = EXCLUDED.odds,
-       bookmaker = EXCLUDED.bookmaker,
-       confidence = EXCLUDED.confidence,
-       analysis = EXCLUDED.analysis,
-       updated_at = now()${photoSet}
+    `INSERT INTO bets (id, bet_date, "match", pick, odds, bookmaker, confidence, analysis${
+      withPhoto ? ', photo_data, photo_mime, photo_size' : ''})
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?${withPhoto ? ', ?, ?, ?' : ''})
+     ON CONFLICT(bet_date) DO UPDATE SET
+       "match" = excluded."match",
+       pick = excluded.pick,
+       odds = excluded.odds,
+       bookmaker = excluded.bookmaker,
+       confidence = excluded.confidence,
+       analysis = excluded.analysis,
+       updated_at = datetime('now')${photoUpdate}
      RETURNING ${BET_COLUMNS}`,
-    params.concat([crypto.randomUUID()]),
+    args,
   );
   return toBet(rows[0]);
 }
 
 async function deleteBet(id) {
-  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
-  const { rows } = await db.query(`DELETE FROM bets WHERE id = $1 RETURNING ${BET_COLUMNS}`, [id]);
+  if (!isId(id)) return null;
+  const { rows } = await db.query(`DELETE FROM bets WHERE id = ? RETURNING ${BET_COLUMNS}`, [id]);
   return toBet(rows[0]);
 }
 
 // Idempotent : rejouer le retour d'un paiement ne compte pas la vente deux fois.
 async function recordOrder(order) {
-  const { rows } = await db.query(
+  await db.query(
     `INSERT INTO orders (id, reference, provider, bet_date, amount_cents, email)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (reference) DO UPDATE SET reference = EXCLUDED.reference
-     RETURNING id, reference, provider, to_char(bet_date, 'YYYY-MM-DD') AS "betDate",
-               amount_cents AS "amountCents", email, created_at AS "createdAt"`,
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(reference) DO NOTHING`,
     [crypto.randomUUID(), order.reference, order.provider, order.betDate,
       order.amountCents, order.email || null],
   );
-  return rows[0];
+  const { rows } = await db.query(
+    `SELECT id, reference, provider, bet_date AS betDate,
+            amount_cents AS amountCents, email, created_at AS createdAt
+     FROM orders WHERE reference = ?`,
+    [order.reference],
+  );
+  return rows[0] || null;
 }
 
 async function stats() {
+  const day = today();
   const { rows } = await db.query(
     `SELECT
-       count(*)::int AS "totalOrders",
-       coalesce(sum(amount_cents), 0)::int AS "totalCents",
-       count(*) FILTER (WHERE bet_date = $1)::int AS "todayOrders",
-       coalesce(sum(amount_cents) FILTER (WHERE bet_date = $1), 0)::int AS "todayCents"
+       COUNT(*) AS totalOrders,
+       COALESCE(SUM(amount_cents), 0) AS totalCents,
+       COALESCE(SUM(CASE WHEN bet_date = ? THEN 1 ELSE 0 END), 0) AS todayOrders,
+       COALESCE(SUM(CASE WHEN bet_date = ? THEN amount_cents ELSE 0 END), 0) AS todayCents
      FROM orders`,
-    [today()],
+    [day, day],
   );
-  return rows[0];
+  const row = rows[0] || {};
+  return {
+    totalOrders: Number(row.totalOrders || 0),
+    totalCents: Number(row.totalCents || 0),
+    todayOrders: Number(row.todayOrders || 0),
+    todayCents: Number(row.todayCents || 0),
+  };
 }
 
 async function salesByDate() {
   const { rows } = await db.query(
-    `SELECT to_char(bet_date, 'YYYY-MM-DD') AS date, count(*)::int AS sales
-     FROM orders GROUP BY bet_date`,
+    'SELECT bet_date AS date, COUNT(*) AS sales FROM orders GROUP BY bet_date',
   );
-  return new Map(rows.map((row) => [row.date, row.sales]));
+  return new Map(rows.map((row) => [row.date, Number(row.sales)]));
 }
 
 module.exports = {

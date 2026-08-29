@@ -16,10 +16,10 @@
   },
   "homepage": "https://github.com/kyzcodepro/UsOpen#readme",
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
     "multer": "^2.3.0",
-    "pg": "^8.23.0",
     "stripe": "^22.6.0"
   },
   "private": true,
