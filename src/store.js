@@ -171,7 +171,7 @@ const DEFAULT_BANKROLL_SETTINGS = {
   startingBalanceCents: 0,
   goalCents: 10000,
   goalTitle: 'ROAD TO ONE HUNDRED.',
-  goalText: 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
+  goalText: 'Suivez le solde et les résultats de chaque pari réglé, toutes compétitions confondues.',
 };
 
 const OUTCOMES = new Set(['pending', 'won', 'lost', 'void']);

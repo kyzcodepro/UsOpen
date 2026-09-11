@@ -29,7 +29,7 @@ function layout({ title, body, bodyClass = '' }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(title)}</title>
-<link rel="stylesheet" href="/styles.css?v=usopen-bankroll-v1">
+<link rel="stylesheet" href="/styles.css?v=multisport-v2">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎯</text></svg>">
 </head>
 <body class="${bodyClass}">
@@ -105,7 +105,7 @@ function scoreboardPanel(scoreboard) {
         <div class="history-odd"><span>COTE</span><strong>${escape(bet.odds)}</strong></div>
         <div class="history-result ${escape(bet.outcome)}"><span>${escape(outcomeLabel(bet.outcome))}</span><strong>${bet.outcome === 'pending' ? '—' : `${bet.profitCents > 0 ? '+' : ''}${escape(money(bet.profitCents))}`}</strong></div>
       </article>`).join('')
-    : `<div class="history-empty"><span>ARCHIVES</span><p>Les premières sélections apparaîtront ici.<br>Le premier point se joue maintenant.</p></div>`;
+    : `<div class="history-empty"><span>ARCHIVES</span><p>Les premières sélections apparaîtront ici.<br>Retrouvez bientôt les résultats des paris publiés.</p></div>`;
 
   return `
   <section class="scoreboard" aria-label="Objectif et solde bankroll">
@@ -119,7 +119,7 @@ function scoreboardPanel(scoreboard) {
       <div class="goal-number"><strong data-balance>${escape(money(score.balanceCents))}</strong><span>/ <span data-target>${escape(money(score.targetCents))}</span></span></div>
       <div class="goal-track" role="progressbar" aria-label="Progression vers l'objectif" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span data-progress style="--progress:${progress}%"></span></div>
       <div class="goal-scale"><span>0 €</span><b data-progress-label>${progress}%</b><span data-target>${escape(money(score.targetCents))}</span></div>
-      <p class="goal-status" data-goal-status>${score.balanceCents >= score.targetCents ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.' : `PLUS QUE ${money(score.remainingCents)} POUR ATTEINDRE L’OBJECTIF.`}</p>
+      <p class="goal-status" data-goal-status>${score.balanceCents >= score.targetCents ? 'OBJECTIF ATTEINT — PLACE AU PROCHAIN DÉFI.' : `PLUS QUE ${money(score.remainingCents)} POUR ATTEINDRE L’OBJECTIF.`}</p>
     </div>
   </section>
 
@@ -153,27 +153,27 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
          <p class="note">Paiement unique, sans abonnement. Accès valable 24 h.</p>`;
 
   return layout({
-    title: 'US Open — Le pari du jour',
+    title: 'Le pari du jour — Pronostics sportifs',
     bodyClass: 'public',
     body: `${demoBanner}
 <main class="site-shell">
   <header class="site-head">
-    <a class="brand" href="/"><span class="brand-court" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
-    <div class="live-status"><i></i> LIVE <span>·</span> FLUSHING, NY</div>
+    <a class="brand" href="/"><span class="brand-target" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
+    <div class="live-status"><i></i> LIVE <span>·</span> MULTISPORT</div>
   </header>
 
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-copy">
-      <p class="eyebrow">TENNIS INTELLIGENCE <span>///</span> 2026</p>
-      <h1 id="hero-title"><span>US</span> <strong>OPEN</strong><em>PARI DU<br>JOUR</em></h1>
-      <p class="baseline">Le signal avant le service. Un seul pronostic travaillé, au rythme du tournoi.</p>
+      <p class="eyebrow">PRONOSTICS SPORTIFS <span>///</span> TOUTE L’ANNÉE</p>
+      <h1 id="hero-title"><span>LE PARI</span><br><strong>DU JOUR</strong><em>LE SPORT. L’ANALYSE. LE CHOIX.</em></h1>
+      <p class="baseline">Football, tennis, basket… Un pronostic travaillé au rythme des rencontres, toutes compétitions confondues.</p>
       <div class="hero-meta" aria-label="Informations sur le pari">
         <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span><span class="meta-balance"><b data-balance-hero>${escape(money(scoreboard.balanceCents))}</b> LIVE / <span data-hero-target>${escape(money(scoreboard.targetCents))}</span></span>
       </div>
     </div>
     <div class="hero-art" aria-hidden="true">
-      <span class="court-lines"></span><span class="court-net"></span><span class="court-ball"></span>
-      <span class="hero-number">2026</span><span class="art-label">NIGHT<br>SESSION</span>
+      <span class="signal-ring"></span><span class="signal-dot"></span>
+      <span class="hero-number">01</span><span class="art-label">UNE SÉLECTION<br>CHAQUE JOUR</span>
     </div>
   </section>
 
@@ -196,7 +196,7 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
 
   <footer class="foot">
     <span>Jouer comporte des risques : endettement, isolement, dépendance. 18+</span>
-    <span class="foot-mark">NYC / HARD COURT</span>
+    <span class="foot-mark">TOUS SPORTS / TOUTE L’ANNÉE</span>
   </footer>
 </main>
 <script>
@@ -223,7 +223,7 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
       setAll('[data-settled]', String(Number(score.settledCount) || 0));
       setAll('[data-wins]', String(Number(score.wins) || 0));
       setAll('[data-goal-status]', score.balanceCents >= score.targetCents
-        ? 'OBJECTIF ATTEINT — ON LANCE LE SET SUIVANT.'
+        ? 'OBJECTIF ATTEINT — PLACE AU PROCHAIN DÉFI.'
         : 'PLUS QUE ' + euros(score.remainingCents) + ' POUR ATTEINDRE L’OBJECTIF.');
       if (bar) bar.style.setProperty('--progress', progress + '%');
       if (meter) meter.setAttribute('aria-valuenow', String(progress));
@@ -237,22 +237,22 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
 
 function betPage({ bet }) {
   return layout({
-    title: 'US Open — Pari débloqué',
+    title: 'Le pari du jour — Pronostic débloqué',
     bodyClass: 'public',
     body: `${demoBanner}
 <main class="site-shell unlocked-shell">
   <header class="site-head">
-    <a class="brand" href="/"><span class="brand-court" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
+    <a class="brand" href="/"><span class="brand-target" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
     <div class="live-status"><i></i> ACCESS GRANTED</div>
   </header>
   <section class="unlocked-intro">
-    <p class="eyebrow">NIGHT SESSION <span>///</span> ANALYSE PREMIUM</p>
-    <h1>LE COURT<br><i>EST À TOI.</i></h1>
+    <p class="eyebrow">VOTRE SÉLECTION <span>///</span> ANALYSE PREMIUM</p>
+    <h1>LE PRONO<br><i>EST À VOUS.</i></h1>
     <p class="unlocked">Paiement confirmé. Voici le pronostic du jour.</p>
   </section>
   ${betCard(bet, { blurred: false })}
   <div class="cta"><a class="btn ghost" href="/">← Retour à l'accueil</a></div>
-  <footer class="foot"><span>Jouer comporte des risques. 18+</span><span class="foot-mark">NYC / HARD COURT</span></footer>
+  <footer class="foot"><span>Jouer comporte des risques. 18+</span><span class="foot-mark">TOUS SPORTS / TOUTE L’ANNÉE</span></footer>
 </main>`,
   });
 }
@@ -317,7 +317,7 @@ function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error
     startingBalanceCents: 0,
     goalCents: 10000,
     goalTitle: 'ROAD TO ONE HUNDRED.',
-    goalText: 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
+    goalText: 'Suivez le solde et les résultats de chaque pari réglé, toutes compétitions confondues.',
   };
   const rows = bets.length
     ? bets.map((item) => `<tr>

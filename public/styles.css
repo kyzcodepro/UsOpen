@@ -25,7 +25,7 @@ body {
 }
 a { color: inherit; }
 
-/* ---------- Public / US Open energy ---------- */
+/* ---------- Public / Identité multisport ---------- */
 .public {
   overflow-x: hidden;
   background:
@@ -48,10 +48,10 @@ a { color: inherit; }
 .site-head { display: flex; min-height: 46px; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--paper); font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif; font-size: 22px; letter-spacing: -.7px; line-height: .85; text-decoration: none; transform: skew(-7deg); }
 .brand > span:last-child > span { color: var(--electric); }
-.brand-court { position: relative; width: 27px; height: 27px; border: 2px solid var(--paper); border-radius: 50%; overflow: hidden; transform: skew(7deg); }
-.brand-court::before, .brand-court::after { content: ""; position: absolute; background: var(--paper); }
-.brand-court::before { left: 11px; top: -3px; height: 31px; width: 2px; transform: rotate(35deg); }
-.brand-court::after { top: 11px; left: -4px; width: 33px; height: 2px; transform: rotate(-33deg); }
+.brand-target { position: relative; width: 27px; height: 27px; border: 2px solid var(--paper); border-radius: 50%; overflow: hidden; transform: skew(7deg); }
+.brand-target::before, .brand-target::after { inset: 10px; border-radius: 50%; background: var(--paper); }
+.brand-target::before { inset: 5px; border: 2px solid var(--electric); border-radius: 50%; background: transparent; }
+.brand-target::after { top: 11px; left: -4px; width: 33px; height: 2px; transform: rotate(-33deg); }
 .live-status { color: var(--paper-muted); font: 700 10px/1 Arial, sans-serif; letter-spacing: 1.6px; white-space: nowrap; }
 .live-status i { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--electric); box-shadow: 0 0 14px var(--electric); }
 .live-status span { color: var(--sky); margin: 0 5px; }
@@ -72,14 +72,7 @@ a { color: inherit; }
 .hero-meta .meta-balance b { color: var(--electric); }
 .hero-art { position: relative; min-height: 100%; isolation: isolate; background: linear-gradient(155deg, transparent 10%, rgba(22, 72, 245, .18) 10.2%, rgba(22, 72, 245, .07) 58%, transparent 58.2%); }
 .hero-art::before { content: ""; position: absolute; top: 76px; right: -195px; z-index: -1; width: 560px; height: 560px; border: 52px solid var(--cobalt); border-radius: 50%; box-shadow: 0 0 0 2px var(--sky), 0 0 90px rgba(22, 72, 245, .72); }
-.hero-art::after { content: ""; position: absolute; bottom: 0; right: -2px; width: 100%; height: 61%; background: linear-gradient(90deg, transparent 0 14%, rgba(183, 255, 49, .74) 14% 14.5%, transparent 14.5% 44%, rgba(183, 255, 49, .5) 44% 44.4%, transparent 44.4%), linear-gradient(0deg, rgba(183, 255, 49, .65) 0 1px, transparent 1px 34%, rgba(183, 255, 49, .45) 34% 34.5%, transparent 34.5%); transform: perspective(380px) rotateX(58deg); transform-origin: bottom; opacity: .75; }
-.court-lines { position: absolute; right: 5%; bottom: 7%; z-index: 1; width: 82%; height: 54%; border: 2px solid rgba(183, 255, 49, .85); transform: perspective(380px) rotateX(58deg); transform-origin: bottom; }
-.court-lines::before { content: ""; position: absolute; left: 50%; top: 0; width: 2px; height: 100%; background: rgba(183, 255, 49, .85); }
-.court-net { position: absolute; bottom: 30%; right: 5%; z-index: 1; width: 82%; height: 3px; background: var(--paper); box-shadow: 0 1px 0 rgba(0, 0, 0, .5); transform: perspective(380px) rotateX(58deg); }
-.court-ball { position: absolute; top: 27%; left: 25%; z-index: 2; width: 66px; height: 66px; border-radius: 50%; background: var(--electric); box-shadow: 0 0 45px rgba(183, 255, 49, .75); transform: rotate(-21deg); }
-.court-ball::before, .court-ball::after { content: ""; position: absolute; width: 48px; height: 28px; border: 3px solid var(--ink); border-right: 0; border-radius: 50%; }
-.court-ball::before { left: -3px; top: -1px; transform: rotate(58deg); }
-.court-ball::after { right: -3px; bottom: -1px; transform: rotate(58deg); }
+.hero-art::after { content: ""; position: absolute; inset: 20%; background: repeating-linear-gradient(-35deg, transparent 0 28px, rgba(94,168,255,.2) 29px 30px); transform: skew(-12deg); }
 .hero-number { position: absolute; top: 6%; right: 5%; z-index: 2; color: var(--sky); font-family: Impact, sans-serif; font-size: clamp(76px, 12vw, 170px); font-weight: 900; letter-spacing: -7px; line-height: .8; opacity: .86; }
 .art-label { position: absolute; right: 8%; bottom: 8%; z-index: 3; color: var(--paper); font: 800 11px/.94 Arial, sans-serif; letter-spacing: 1.7px; text-align: right; }
 
@@ -267,8 +260,7 @@ label.inline input { width: auto; margin: 0; }
   .hero-art { min-height: 275px; margin: 0 -19px; }
   .hero-art::before { top: -110px; right: -125px; width: 420px; height: 420px; border-width: 38px; }
   .hero-number { top: -7px; right: 8%; font-size: 123px; }
-  .court-ball { top: 11%; left: 24%; }
-  .daily-drop { grid-template-columns: 1fr; gap: 27px; padding: 45px 0 49px; }
+    .daily-drop { grid-template-columns: 1fr; gap: 27px; padding: 45px 0 49px; }
   .teaser { min-height: 218px; }
   .teaser.empty { min-height: 180px; }
   .btn { min-height: 48px; }
@@ -304,7 +296,7 @@ label.inline input { width: auto; margin: 0; }
 
 @media (max-width: 460px) {
   .brand { font-size: 18px; }
-  .brand-court { width: 23px; height: 23px; }
+  .brand-target { width: 23px; height: 23px; }
   .live-status span { display: none; }
   .hero h1 { font-size: 69px; letter-spacing: -3px; }
   .baseline { font-size: 15px; }
@@ -319,3 +311,8 @@ label.inline input { width: auto; margin: 0; }
   .photo-current { display: block; }
   .photo-current img { margin-bottom: 12px; }
 }
+
+.signal-ring { position: absolute; left: 12%; top: 20%; width: 150px; aspect-ratio: 1; border: 2px solid var(--electric); border-radius: 50%; box-shadow: inset 0 0 0 24px var(--ink-2), inset 0 0 0 26px var(--electric), 0 0 50px rgba(183,255,49,.15); }
+.signal-dot { position: absolute; left: calc(12% + 66px); top: calc(20% + 66px); width: 18px; height: 18px; background: var(--electric); border-radius: 50%; box-shadow: 0 0 30px var(--electric); }
+.hero h1 { line-height: .9; }
+.hero h1 em { font-size: .2em; line-height: 1.2; letter-spacing: .5px; }

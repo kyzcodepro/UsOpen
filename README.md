@@ -3,6 +3,9 @@
 Une page unique où les visiteurs paient **1 €** pour débloquer le pronostic du jour,
 avec une interface d'administration pour publier ce pronostic.
 
+Une identité multisport, valable toute l’année : football, tennis, basket et
+autres disciplines, sans lien exclusif avec un tournoi ou une compétition.
+
 ## Ce que ça fait
 
 **Côté public** (`/`)

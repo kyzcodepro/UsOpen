@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS bankroll_settings (
   starting_balance_cents INTEGER NOT NULL DEFAULT 0,
   goal_cents             INTEGER NOT NULL DEFAULT 10000,
   goal_title             TEXT NOT NULL DEFAULT 'ROAD TO ONE HUNDRED.',
-  goal_text              TEXT NOT NULL DEFAULT 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
+  goal_text              TEXT NOT NULL DEFAULT 'Suivez le solde et les résultats de chaque pari réglé, toutes compétitions confondues.',
   updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;
