@@ -107,7 +107,8 @@ test('Locked, the single page announces the odds but never the pick', () => {
 
   // La cote et la confiance sont le seul moyen de juger avant d'acheter.
   assert.match(html, /1\.85/);
-  assert.match(html, /Débloquer pour/);
+  // C'est l'action d'achat qui compte, pas son libelle.
+  assert.match(html, /action="\/paiement"/);
   // Ce qui est vendu ne doit pas fuiter dans la source de la page.
   assert.doesNotMatch(html, /Plus de 22,5 jeux/);
   assert.doesNotMatch(html, /Sinner vs Alcaraz/);
@@ -123,7 +124,7 @@ test('Unlocked, the same page fills in with the pick instead of sending elsewher
   assert.match(html, /aucun break concédé/);
   assert.match(html, /Winamax/);
   assert.match(html, /\/pari\/photo/);
-  // Le pronostic se lit ici : aucun bouton ne renvoie ailleurs.
-  assert.doesNotMatch(html, /Débloquer pour/);
+  // Le pronostic se lit ici : plus rien a payer, plus rien a ouvrir ailleurs.
+  assert.doesNotMatch(html, /action="\/paiement"/);
   assert.match(html, /id="pronostic"/);
 });

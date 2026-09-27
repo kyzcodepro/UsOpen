@@ -31,7 +31,7 @@ function layout({ title, body, bodyClass = '' }) {
 <meta name="color-scheme" content="dark">
 <meta name="description" content="Un seul pronostic sportif par jour, publié avant la rencontre. Accès 24 h pour ${escape(config.priceLabel)}.">
 <title>${escape(title)}</title>
-<link rel="stylesheet" href="/styles.css?v=onepage-v3">
+<link rel="stylesheet" href="/styles.css?v=dossier-v1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎯</text></svg>">
 </head>
 <body class="${bodyClass}">
@@ -72,67 +72,76 @@ function confidenceDots(confidence) {
   return `<span class="dots" role="img" aria-label="Confiance ${level} sur 5">${dots}</span>`;
 }
 
+function docRef(isoDate) {
+  const [y, m, d] = String(isoDate).split('-');
+  return `${d}.${m}.${y}`;
+}
+
 /**
- * Le coeur de la page, dans ses deux etats. C'est le meme bloc, a la meme
- * place : l'acheteur voit se remplir l'encadre qu'il regardait deja, plutot
- * que d'etre emmene sur une autre page apres avoir paye.
+ * Le coeur de la page, dans ses deux etats. C'est le meme dossier, a la meme
+ * place : l'acheteur voit se descelller ce qu'il regardait deja, plutot que
+ * d'etre emmene sur une autre page apres avoir paye.
+ *
+ * Le sceau n'est pas qu'un decor. Tant qu'il est en place, le match, la
+ * selection et l'analyse sont absents du document : il n'y a rien a decouvrir
+ * en lisant la source de la page.
  */
-function pickCard({ bet, hasAccess }) {
+function pickCard({ bet, hasAccess, dossierNumber }) {
   if (!bet) {
-    return `<article class="card card-empty" id="pronostic">
-      <p class="eyebrow">Pronostic du jour</p>
-      <h2>Pas encore de sélection.</h2>
-      <p class="lede">La sélection du jour est publiée avant la rencontre. Repassez d'ici là.</p>
+    return `<article class="dossier dossier-empty" id="pronostic">
+      <p class="classification">Aucun dossier ouvert</p>
+      <h2>La sélection n'est pas encore déposée.</h2>
+      <p class="lede">Un dossier par jour, publié avant la rencontre. Repassez d'ici là.</p>
     </article>`;
   }
 
-  const head = `<header class="card-head">
-    <p class="eyebrow">Pronostic du jour</p>
-    <time datetime="${escape(bet.date)}">${escape(formatDate(bet.date))}</time>
+  const ref = String(dossierNumber).padStart(3, '0');
+  const head = `<header class="dossier-head">
+    <p class="ref">Dossier N<sup>o</sup> ${escape(ref)}</p>
+    <time datetime="${escape(bet.date)}">${escape(docRef(bet.date))}</time>
   </header>`;
 
+  // La cote et la confiance sont annoncees des l'etat scelle : sans elles,
+  // l'acheteur paierait sans rien savoir de ce qu'il achete.
+  const meta = (extra) => `<dl class="meta">
+    <div><dt>Cote</dt><dd class="meta-odds">${escape(bet.odds)}</dd></div>
+    <div><dt>Confiance</dt><dd>${confidenceDots(bet.confidence)}</dd></div>
+    ${extra}
+  </dl>`;
+
   if (!hasAccess) {
-    // La cote et la confiance sont annoncees : sans elles, l'acheteur paierait
-    // sans rien savoir de ce qu'il achete. Le match et la selection, eux, sont
-    // exactement ce qu'il paie.
-    return `<article class="card card-locked" id="pronostic">
+    return `<article class="dossier dossier-locked" id="pronostic">
       ${head}
-      <dl class="facts facts-teaser">
-        <div><dt>Cote</dt><dd class="fact-strong">${escape(bet.odds)}</dd></div>
-        <div><dt>Confiance</dt><dd>${confidenceDots(bet.confidence)}</dd></div>
-        <div><dt>Sélections</dt><dd class="fact-strong">1</dd></div>
-      </dl>
-      <div class="veil" aria-hidden="true">
-        <span class="veil-label">Match &amp; sélection</span>
-        <span class="veil-bar veil-bar-lg"></span>
-        <span class="veil-bar"></span>
-        <span class="veil-bar veil-bar-sm"></span>
+      <div class="seal" aria-hidden="true"><span>Scellé</span></div>
+      ${meta('<div><dt>Sélections</dt><dd class="meta-odds">1</dd></div>')}
+      <div class="redacted" aria-hidden="true">
+        <p class="redact-label">Rencontre</p>
+        <span class="bar bar-xl"></span>
+        <p class="redact-label">Sélection</p>
+        <span class="bar"></span>
+        <span class="bar bar-sm"></span>
       </div>
       <div class="unlock">
         <form method="post" action="/paiement">
-          <button class="btn" type="submit">Débloquer pour ${escape(config.priceLabel)}</button>
+          <button class="btn" type="submit">Briser le sceau — ${escape(config.priceLabel)}</button>
         </form>
-        <p class="fine">Paiement unique. Sans abonnement. Accès valable 24 h${bet.photo ? ', photo du ticket incluse' : ''}.</p>
+        <p class="fine">Paiement unique. Sans abonnement. Accès valable 24 h${bet.photo ? ', ticket joint' : ''}.</p>
       </div>
     </article>`;
   }
 
-  return `<article class="card card-open" id="pronostic">
+  return `<article class="dossier dossier-open" id="pronostic">
     ${head}
-    <p class="granted"><span class="tick" aria-hidden="true"></span> Accès confirmé — valable 24 h</p>
+    <p class="opened"><span class="stamp">Descellé</span> <span>Accès valable 24 h</span></p>
     <h2 class="match">${escape(bet.match)}</h2>
     <p class="the-pick">${escape(bet.pick)}</p>
-    <dl class="facts">
-      <div><dt>Cote</dt><dd class="fact-strong">${escape(bet.odds)}</dd></div>
-      <div><dt>Bookmaker</dt><dd>${escape(bet.bookmaker || '—')}</dd></div>
-      <div><dt>Confiance</dt><dd>${confidenceDots(bet.confidence)}</dd></div>
-    </dl>
+    ${meta(`<div><dt>Bookmaker</dt><dd>${escape(bet.bookmaker || '—')}</dd></div>`)}
     ${bet.analysis ? `<section class="analysis">
       <h3>L'analyse</h3>
       <p>${escape(bet.analysis).replace(/\n/g, '<br>')}</p>
     </section>` : ''}
     ${bet.photo ? `<figure class="ticket">
-      <figcaption>Le ticket</figcaption>
+      <figcaption>Pièce jointe — le ticket</figcaption>
       <a href="/pari/photo" target="_blank" rel="noopener">
         <img src="/pari/photo" alt="Photo du ticket de pari" loading="lazy">
       </a>
@@ -199,13 +208,14 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
   </header>
 
   <section class="intro">
+    <p class="classification">Confidentiel · un dossier par jour</p>
     <h1>Un seul pronostic<br>par jour.</h1>
-    <p class="lede">Football, tennis, basket… Un pronostic travaillé, publié avant la rencontre. Pas de combiné, pas de rattrapage, pas d'abonnement.</p>
+    <p class="lede">Football, tennis, basket… Un pronostic travaillé, scellé avant la rencontre. Pas de combiné, pas de rattrapage, pas d'abonnement.</p>
   </section>
 
   ${error ? `<p class="error" role="alert">${escape(error)}</p>` : ''}
 
-  ${pickCard({ bet, hasAccess })}
+  ${pickCard({ bet, hasAccess, dossierNumber: Number(scoreboard.publishedCount) || 1 })}
 
   ${ledger(scoreboard)}
   ${record(scoreboard)}

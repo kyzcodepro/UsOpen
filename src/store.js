@@ -251,6 +251,9 @@ function buildPublicScoreboard(settings, bets, historyBets) {
     percentage,
     progress: Math.min(100, Math.max(0, percentage)),
     settledCount: settled.length,
+    // Numerote les pronostics publies depuis l'ouverture. La page s'en sert
+    // comme reference de dossier : c'est un compte reel, pas un ornement.
+    publishedCount: bets.length,
     wins: settled.filter((bet) => bet.outcome === 'won').length,
     goalTitle: String(safeSettings.goalTitle).slice(0, 80),
     goalText: String(safeSettings.goalText).slice(0, 240),
