@@ -28,8 +28,10 @@ function layout({ title, body, bodyClass = '' }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Un seul pronostic sportif par jour, publié avant la rencontre. Accès 24 h pour ${escape(config.priceLabel)}.">
 <title>${escape(title)}</title>
-<link rel="stylesheet" href="/styles.css?v=multisport-v2">
+<link rel="stylesheet" href="/styles.css?v=dossier-v1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎯</text></svg>">
 </head>
 <body class="${bodyClass}">
@@ -41,34 +43,6 @@ ${body}
 const demoBanner = config.demoMode
   ? `<div class="banner">Mode démo — aucune clé Stripe configurée, le paiement est simulé.</div>`
   : '';
-
-function betCard(bet, { blurred }) {
-  const confidence = Number(bet.confidence) || 0;
-  const dots = Array.from({ length: 5 }, (_, i) =>
-    `<span class="dot ${i < confidence ? 'on' : ''}"></span>`).join('');
-  return `
-<article class="bet ${blurred ? 'locked' : ''}">
-  <header class="bet-head">
-    <span class="tag">Pari du jour</span>
-    <span class="bet-date">${escape(formatDate(bet.date))}</span>
-  </header>
-  <h2 class="bet-match">${escape(bet.match)}</h2>
-  <div class="bet-grid">
-    <div><span class="label">Pronostic</span><strong>${escape(bet.pick)}</strong></div>
-    <div><span class="label">Cote</span><strong>${escape(bet.odds)}</strong></div>
-    <div><span class="label">Bookmaker</span><strong>${escape(bet.bookmaker || '—')}</strong></div>
-    <div><span class="label">Confiance</span><span class="dots">${dots}</span></div>
-  </div>
-  ${bet.analysis ? `<div class="analysis"><span class="label">Analyse</span><p>${escape(bet.analysis).replace(/\n/g, '<br>')}</p></div>` : ''}
-  ${!blurred && bet.photo ? `<figure class="shot">
-    <span class="label">Le ticket</span>
-    <a href="/pari/photo" target="_blank" rel="noopener">
-      <img src="/pari/photo" alt="Photo du ticket de pari">
-    </a>
-    <figcaption>Cliquez pour l'ouvrir en grand.</figcaption>
-  </figure>` : ''}
-</article>`;
-}
 
 function shortDate(isoDate) {
   const [y, m, d] = String(isoDate).split('-').map(Number);
@@ -91,112 +65,164 @@ function outcomeLabel(outcome) {
   }[outcome] || 'EN ATTENTE';
 }
 
-function scoreboardPanel(scoreboard) {
-  const score = scoreboard || {
-    balanceCents: 0, targetCents: 10000, remainingCents: 10000,
-    progress: 0, percentage: 0, orders: 0, history: [],
-  };
+function confidenceDots(confidence) {
+  const level = Math.min(5, Math.max(0, Number(confidence) || 0));
+  const dots = Array.from({ length: 5 }, (_, i) =>
+    `<span class="dot${i < level ? ' is-on' : ''}"></span>`).join('');
+  return `<span class="dots" role="img" aria-label="Confiance ${level} sur 5">${dots}</span>`;
+}
+
+function docRef(isoDate) {
+  const [y, m, d] = String(isoDate).split('-');
+  return `${d}.${m}.${y}`;
+}
+
+/**
+ * Le coeur de la page, dans ses deux etats. C'est le meme dossier, a la meme
+ * place : l'acheteur voit se descelller ce qu'il regardait deja, plutot que
+ * d'etre emmene sur une autre page apres avoir paye.
+ *
+ * Le sceau n'est pas qu'un decor. Tant qu'il est en place, le match, la
+ * selection et l'analyse sont absents du document : il n'y a rien a decouvrir
+ * en lisant la source de la page.
+ */
+function pickCard({ bet, hasAccess, dossierNumber }) {
+  if (!bet) {
+    return `<article class="dossier dossier-empty" id="pronostic">
+      <p class="classification">Aucun dossier ouvert</p>
+      <h2>La sélection n'est pas encore déposée.</h2>
+      <p class="lede">Un dossier par jour, publié avant la rencontre. Repassez d'ici là.</p>
+    </article>`;
+  }
+
+  const ref = String(dossierNumber).padStart(3, '0');
+  const head = `<header class="dossier-head">
+    <p class="ref">Dossier N<sup>o</sup> ${escape(ref)}</p>
+    <time datetime="${escape(bet.date)}">${escape(docRef(bet.date))}</time>
+  </header>`;
+
+  // La cote et la confiance sont annoncees des l'etat scelle : sans elles,
+  // l'acheteur paierait sans rien savoir de ce qu'il achete.
+  const meta = (extra) => `<dl class="meta">
+    <div><dt>Cote</dt><dd class="meta-odds">${escape(bet.odds)}</dd></div>
+    <div><dt>Confiance</dt><dd>${confidenceDots(bet.confidence)}</dd></div>
+    ${extra}
+  </dl>`;
+
+  if (!hasAccess) {
+    return `<article class="dossier dossier-locked" id="pronostic">
+      ${head}
+      <div class="seal" aria-hidden="true"><span>Scellé</span></div>
+      ${meta('<div><dt>Sélections</dt><dd class="meta-odds">1</dd></div>')}
+      <div class="redacted" aria-hidden="true">
+        <p class="redact-label">Rencontre</p>
+        <span class="bar bar-xl"></span>
+        <p class="redact-label">Sélection</p>
+        <span class="bar"></span>
+        <span class="bar bar-sm"></span>
+      </div>
+      <div class="unlock">
+        <form method="post" action="/paiement">
+          <button class="btn" type="submit">Briser le sceau — ${escape(config.priceLabel)}</button>
+        </form>
+        <p class="fine">Paiement unique. Sans abonnement. Accès valable 24 h${bet.photo ? ', ticket joint' : ''}.</p>
+      </div>
+    </article>`;
+  }
+
+  return `<article class="dossier dossier-open" id="pronostic">
+    ${head}
+    <p class="opened"><span class="stamp">Descellé</span> <span>Accès valable 24 h</span></p>
+    <h2 class="match">${escape(bet.match)}</h2>
+    <p class="the-pick">${escape(bet.pick)}</p>
+    ${meta(`<div><dt>Bookmaker</dt><dd>${escape(bet.bookmaker || '—')}</dd></div>`)}
+    ${bet.analysis ? `<section class="analysis">
+      <h3>L'analyse</h3>
+      <p>${escape(bet.analysis).replace(/\n/g, '<br>')}</p>
+    </section>` : ''}
+    ${bet.photo ? `<figure class="ticket">
+      <figcaption>Pièce jointe — le ticket</figcaption>
+      <a href="/pari/photo" target="_blank" rel="noopener">
+        <img src="/pari/photo" alt="Photo du ticket de pari" loading="lazy">
+      </a>
+      <p class="fine">Touchez l'image pour l'ouvrir en grand.</p>
+    </figure>` : ''}
+  </article>`;
+}
+
+function ledger(score) {
   const progress = Math.min(100, Math.max(0, Number(score.progress) || 0));
-  const history = score.history.length
-    ? score.history.map((bet, index) => `<article class="history-card">
-        <span class="history-index">${String(index + 1).padStart(2, '0')}</span>
-        <div><span class="history-date">${escape(shortDate(bet.date))}</span><h3>${escape(bet.match)}</h3></div>
-        <div class="history-pick"><span>SÉLECTION</span><strong>${escape(bet.pick)}</strong></div>
-        <div class="history-odd"><span>COTE</span><strong>${escape(bet.odds)}</strong></div>
-        <div class="history-result ${escape(bet.outcome)}"><span>${escape(outcomeLabel(bet.outcome))}</span><strong>${bet.outcome === 'pending' ? '—' : `${bet.profitCents > 0 ? '+' : ''}${escape(money(bet.profitCents))}`}</strong></div>
-      </article>`).join('')
-    : `<div class="history-empty"><span>ARCHIVES</span><p>Les premières sélections apparaîtront ici.<br>Retrouvez bientôt les résultats des paris publiés.</p></div>`;
-
-  return `
-  <section class="scoreboard" aria-label="Objectif et solde bankroll">
-    <div class="goal-copy">
-      <p class="eyebrow">MISSION <span>///</span> OBJECTIF <b data-target>${escape(money(score.targetCents))}</b></p>
+  return `<section class="ledger" data-scoreboard data-target-cents="${Number(score.targetCents)}" aria-label="Suivi de la bankroll">
+    <div class="ledger-head">
       <h2 data-goal-title>${escape(score.goalTitle)}</h2>
-      <p data-goal-text>${escape(score.goalText)}</p>
+      <p class="lede" data-goal-text>${escape(score.goalText)}</p>
     </div>
-    <div class="goal-meter" data-scoreboard data-target-cents="${Number(score.targetCents)}">
-      <div class="goal-topline"><span>SOLDE LIVE</span><span class="live-dot"><i></i> CONFIRMÉ</span></div>
-      <div class="goal-number"><strong data-balance>${escape(money(score.balanceCents))}</strong><span>/ <span data-target>${escape(money(score.targetCents))}</span></span></div>
-      <div class="goal-track" role="progressbar" aria-label="Progression vers l'objectif" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span data-progress style="--progress:${progress}%"></span></div>
-      <div class="goal-scale"><span>0 €</span><b data-progress-label>${progress}%</b><span data-target>${escape(money(score.targetCents))}</span></div>
-      <p class="goal-status" data-goal-status>${score.balanceCents >= score.targetCents ? 'OBJECTIF ATTEINT — PLACE AU PROCHAIN DÉFI.' : `PLUS QUE ${money(score.remainingCents)} POUR ATTEINDRE L’OBJECTIF.`}</p>
+    <div class="meter">
+      <p class="meter-top"><span>Solde</span><span class="live"><i></i> à jour</span></p>
+      <p class="meter-figure"><strong data-balance>${escape(money(score.balanceCents))}</strong><span>sur <span data-target>${escape(money(score.targetCents))}</span></span></p>
+      <div class="track" role="progressbar" aria-label="Progression vers l'objectif" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+        <span data-progress style="--progress:${progress}%"></span>
+      </div>
+      <p class="meter-foot"><b data-progress-label>${progress}%</b> de l'objectif · <span data-settled>${Number(score.settledCount) || 0}</span> paris réglés, <span data-wins>${Number(score.wins) || 0}</span> gagnants</p>
     </div>
-  </section>
+  </section>`;
+}
 
-  <section class="history" id="historique" aria-label="Historique des paris">
-    <header class="history-heading"><div><span>02 / TRACK RECORD</span><h2>HISTORIQUE<br><i>DES PARIS.</i></h2></div><p><b data-settled>${Number(score.settledCount) || 0}</b> paris réglés<br><span data-wins>${Number(score.wins) || 0}</span> gagnant(s)</p></header>
-    <div class="history-list">${history}</div>
+function record(score) {
+  if (!score.history.length) {
+    return `<section class="record" aria-label="Historique des paris">
+      <h2>Historique</h2>
+      <p class="lede">Retrouvez bientôt les résultats des paris publiés.</p>
+    </section>`;
+  }
+
+  const rows = score.history.map((bet) => `<li class="entry entry-${escape(bet.outcome)}">
+    <time datetime="${escape(bet.date)}">${escape(shortDate(bet.date))}</time>
+    <div class="entry-what">
+      <h3>${escape(bet.match)}</h3>
+      <p>${escape(bet.pick)}</p>
+    </div>
+    <span class="entry-odds">${escape(bet.odds)}</span>
+    <span class="entry-result">
+      <b>${escape(outcomeLabel(bet.outcome))}</b>
+      ${bet.outcome === 'pending' ? '' : `<span>${bet.profitCents > 0 ? '+' : ''}${escape(money(bet.profitCents))}</span>`}
+    </span>
+  </li>`).join('');
+
+  return `<section class="record" aria-label="Historique des paris">
+    <h2>Historique</h2>
+    <p class="lede">Tous les paris réglés, gagnants comme perdants.</p>
+    <ol class="entries">${rows}</ol>
   </section>`;
 }
 
 function homePage({ bet, hasAccess, scoreboard, error }) {
-  const teaser = bet
-    ? `<div class="teaser">
-        <div class="teaser-inner">
-          <span class="tag">Carte verrouillée · ${escape(formatDate(bet.date))}</span>
-          <p class="blur">${escape(bet.match)}</p>
-          <p class="blur small">${escape(bet.pick)} — cote ${escape(bet.odds)}</p>
-          ${bet.photo ? '<p class="joined">Photo du ticket jointe</p>' : ''}
-        </div>
-        <div class="lock" aria-hidden="true">⌁</div>
-      </div>`
-    : `<div class="teaser empty"><span class="empty-orb" aria-hidden="true"></span><p>La carte du jour arrive bientôt.<br>Restez dans le jeu.</p></div>`;
-
-  const action = !bet
-    ? ''
-    : hasAccess
-      ? `<a class="btn" href="/pari">Voir le pari du jour</a>
-         <p class="note">Accès déjà réglé — valable 24 h.</p>`
-      : `<form method="post" action="/paiement">
-           <button class="btn" type="submit">Débloquer pour ${escape(config.priceLabel)}</button>
-         </form>
-         <p class="note">Paiement unique, sans abonnement. Accès valable 24 h.</p>`;
-
   return layout({
     title: 'Le pari du jour — Pronostics sportifs',
     bodyClass: 'public',
     body: `${demoBanner}
-<main class="site-shell">
-  <header class="site-head">
-    <a class="brand" href="/"><span class="brand-target" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
-    <div class="live-status"><i></i> LIVE <span>·</span> MULTISPORT</div>
+<main class="page">
+  <header class="masthead">
+    <p class="brand"><span class="mark" aria-hidden="true"></span> Le pari du jour</p>
+    <p class="live"><i></i> Multisport</p>
   </header>
 
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-copy">
-      <p class="eyebrow">PRONOSTICS SPORTIFS <span>///</span> TOUTE L’ANNÉE</p>
-      <h1 id="hero-title"><span>LE PARI</span><br><strong>DU JOUR</strong><em>LE SPORT. L’ANALYSE. LE CHOIX.</em></h1>
-      <p class="baseline">Football, tennis, basket… Un pronostic travaillé au rythme des rencontres, toutes compétitions confondues.</p>
-      <div class="hero-meta" aria-label="Informations sur le pari">
-        <span><b>01</b> PICK / JOUR</span><span><b>24H</b> ACCÈS</span><span><b>${escape(config.priceLabel)}</b> ONE SHOT</span><span class="meta-balance"><b data-balance-hero>${escape(money(scoreboard.balanceCents))}</b> LIVE / <span data-hero-target>${escape(money(scoreboard.targetCents))}</span></span>
-      </div>
-    </div>
-    <div class="hero-art" aria-hidden="true">
-      <span class="signal-ring"></span><span class="signal-dot"></span>
-      <span class="hero-number">01</span><span class="art-label">UNE SÉLECTION<br>CHAQUE JOUR</span>
-    </div>
+  <section class="intro">
+    <p class="classification">Confidentiel · un dossier par jour</p>
+    <h1>Un seul pronostic<br>par jour.</h1>
+    <p class="lede">Football, tennis, basket… Un pronostic travaillé, scellé avant la rencontre. Pas de combiné, pas de rattrapage, pas d'abonnement.</p>
   </section>
 
-  <section class="daily-drop" aria-label="Le pronostic du jour">
-    <div class="section-heading"><span>01 / DAILY DROP</span><h2>LE POINT<br><i>DE BASCULE</i></h2><p>Format court. Lecture longue.</p></div>
-    <div class="drop-content">
-      ${error ? `<p class="error">${escape(error)}</p>` : ''}
-      ${teaser}
-      <div class="cta">${action}</div>
-    </div>
-  </section>
+  ${error ? `<p class="error" role="alert">${escape(error)}</p>` : ''}
 
-  <section class="perks" aria-label="Les garanties du service">
-    <article><span>01</span><h3>UN SEUL<br>ANGLE</h3><p>Zéro bruit. Une sélection assumée.</p></article>
-    <article><span>02</span><h3>ANALYSE<br>NETTE</h3><p>Contexte, cote et confiance.</p></article>
-    <article><span>03</span><h3>NO<br>SUBSCRIPTION</h3><p>${escape(config.priceLabel)}. Puis c'est tout.</p></article>
-  </section>
+  ${pickCard({ bet, hasAccess, dossierNumber: Number(scoreboard.publishedCount) || 1 })}
 
-  ${scoreboardPanel(scoreboard)}
+  ${ledger(scoreboard)}
+  ${record(scoreboard)}
 
   <footer class="foot">
-    <span>Jouer comporte des risques : endettement, isolement, dépendance. 18+</span>
-    <span class="foot-mark">TOUS SPORTS / TOUTE L’ANNÉE</span>
+    <p>Les paris sportifs comportent des risques : endettement, isolement, dépendance. Interdit aux mineurs.</p>
+    <p class="foot-mark">18+ · Jouer comporte des risques</p>
   </footer>
 </main>
 <script>
@@ -214,17 +240,12 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
       const bar = root.querySelector('[data-progress]');
       const meter = root.querySelector('[role="progressbar"]');
       setAll('[data-balance]', euros(score.balanceCents));
-      setAll('[data-balance-hero]', euros(score.balanceCents));
       setAll('[data-target]', euros(score.targetCents));
-      setAll('[data-hero-target]', euros(score.targetCents));
       setAll('[data-goal-title]', score.goalTitle);
       setAll('[data-goal-text]', score.goalText);
       setAll('[data-progress-label]', progress + '%');
       setAll('[data-settled]', String(Number(score.settledCount) || 0));
       setAll('[data-wins]', String(Number(score.wins) || 0));
-      setAll('[data-goal-status]', score.balanceCents >= score.targetCents
-        ? 'OBJECTIF ATTEINT — PLACE AU PROCHAIN DÉFI.'
-        : 'PLUS QUE ' + euros(score.remainingCents) + ' POUR ATTEINDRE L’OBJECTIF.');
       if (bar) bar.style.setProperty('--progress', progress + '%');
       if (meter) meter.setAttribute('aria-valuenow', String(progress));
     } catch (_) { /* Le compteur garde la derniere valeur valide. */ }
@@ -235,37 +256,19 @@ function homePage({ bet, hasAccess, scoreboard, error }) {
   });
 }
 
-function betPage({ bet }) {
-  return layout({
-    title: 'Le pari du jour — Pronostic débloqué',
-    bodyClass: 'public',
-    body: `${demoBanner}
-<main class="site-shell unlocked-shell">
-  <header class="site-head">
-    <a class="brand" href="/"><span class="brand-target" aria-hidden="true"></span><span>PARI<span>DU</span>JOUR</span></a>
-    <div class="live-status"><i></i> ACCESS GRANTED</div>
-  </header>
-  <section class="unlocked-intro">
-    <p class="eyebrow">VOTRE SÉLECTION <span>///</span> ANALYSE PREMIUM</p>
-    <h1>LE PRONO<br><i>EST À VOUS.</i></h1>
-    <p class="unlocked">Paiement confirmé. Voici le pronostic du jour.</p>
-  </section>
-  ${betCard(bet, { blurred: false })}
-  <div class="cta"><a class="btn ghost" href="/">← Retour à l'accueil</a></div>
-  <footer class="foot"><span>Jouer comporte des risques. 18+</span><span class="foot-mark">TOUS SPORTS / TOUTE L’ANNÉE</span></footer>
-</main>`,
-  });
-}
-
 function messagePage({ title, heading, message, link }) {
   return layout({
     title,
     bodyClass: 'public',
-    body: `<main class="wrap narrow">
-  <h1 class="logo">🎯 Le pari du jour</h1>
-  <h2>${escape(heading)}</h2>
-  <p class="baseline">${escape(message)}</p>
-  <div class="cta"><a class="btn" href="${escape(link.href)}">${escape(link.label)}</a></div>
+    body: `<main class="page page-slim">
+  <header class="masthead">
+    <p class="brand"><span class="mark" aria-hidden="true"></span> Le pari du jour</p>
+  </header>
+  <section class="intro">
+    <h1>${escape(heading)}</h1>
+    <p class="lede">${escape(message)}</p>
+  </section>
+  <p><a class="btn" href="${escape(link.href)}">${escape(link.label)}</a></p>
 </main>`,
   });
 }
@@ -278,7 +281,7 @@ function configErrorPage({ missing, env, present }) {
     : `<p class="note"><strong>Cette fonction ne reçoit aucune variable.</strong> Si vous les avez définies, elles le sont pour un autre environnement que celui-ci, ou le déploiement date d'avant leur ajout.</p>`;
   return layout({
     title: 'Configuration incomplète',
-    bodyClass: 'public',
+    bodyClass: 'admin',
     body: `<main class="wrap narrow">
   <h1 class="logo">Configuration incomplète</h1>
   <p class="baseline">L'application ne peut pas démarrer tant que ces variables d'environnement ne sont pas définies :</p>
@@ -297,7 +300,7 @@ function adminLoginPage({ error }) {
     body: `<main class="wrap narrow">
   <h1 class="logo">Espace admin</h1>
   ${error ? `<p class="error">${escape(error)}</p>` : ''}
-  <form method="post" action="/admin/login" class="card">
+  <form method="post" action="/admin/login" class="card-admin">
     <label>Mot de passe
       <input type="password" name="password" autocomplete="current-password" required autofocus>
     </label>
@@ -317,7 +320,7 @@ function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error
     startingBalanceCents: 0,
     goalCents: 10000,
     goalTitle: 'ROAD TO ONE HUNDRED.',
-    goalText: 'Suivez le solde et les résultats de chaque pari réglé, toutes compétitions confondues.',
+    goalText: 'Chaque pari réglé fait avancer le compteur. On joue la montée, point après point.',
   };
   const rows = bets.length
     ? bets.map((item) => `<tr>
@@ -343,7 +346,7 @@ function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error
     bodyClass: 'admin',
     body: `${demoBanner}
 <header class="topbar">
-  <span class="logo">🎯 Admin</span>
+  <span class="logo">Admin</span>
   <nav>
     <a href="/" target="_blank" rel="noopener">Voir le site</a>
     <form method="post" action="/admin/logout"><button class="link" type="submit">Déconnexion</button></form>
@@ -353,7 +356,7 @@ function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error
   ${flash ? `<p class="success">${escape(flash)}</p>` : ''}
   ${error ? `<p class="error">${escape(error)}</p>` : ''}
 
-  <section class="card bankroll-config">
+  <section class="card-admin bankroll-config">
     <div class="admin-section-head"><div><span class="label">Solde live public</span><h2>Objectif bankroll</h2></div><p>Le solde se calcule automatiquement après chaque résultat enregistré : mise × cote pour un gain, mise retirée pour une perte.</p></div>
     <form method="post" action="/admin/bankroll" class="form">
       <div class="row">
@@ -381,7 +384,7 @@ function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error
     <div class="stat"><span class="label">CA total</span><strong>${escape(money(stats.totalCents))}</strong></div>
   </section>
 
-  <section class="card">
+  <section class="card-admin">
     <h2>${bet ? 'Modifier le pari' : 'Publier un pari'}</h2>
     <form method="post" action="/admin/bets" class="form" enctype="multipart/form-data">
       <label>Date
@@ -437,7 +440,7 @@ function adminDashboard({ bet, bets, stats, sales, bankroll, today, flash, error
     </form>
   </section>
 
-  <section class="card">
+  <section class="card-admin">
     <h2>Historique</h2>
     <table>
       <thead><tr><th>Date</th><th>Match</th><th>Pronostic</th><th>Cote</th><th>Mise</th><th>Résultat</th><th>Ventes</th><th></th></tr></thead>
@@ -454,7 +457,6 @@ module.exports = {
   formatDate,
   money,
   homePage,
-  betPage,
   messagePage,
   adminLoginPage,
   adminDashboard,

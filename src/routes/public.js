@@ -122,27 +122,28 @@ self.addEventListener('activate', (event) => {
 `);
 });
 
+/**
+ * Le site tient sur cette seule page. Elle porte les deux etats du pronostic :
+ * verrouille, elle annonce la cote et la confiance et propose de payer ;
+ * debloquee, le meme encadre se remplit de la selection. L'acheteur voit donc
+ * se completer ce qu'il regardait, au lieu d'etre emmene ailleurs.
+ */
 router.get('/', wrap(async (req, res) => {
   const [bet, scoreboard] = await Promise.all([store.getTodayBet(), store.publicScoreboard()]);
+  const hasAccess = Boolean(bet) && auth.hasAccess(req, bet.date);
+  // Une page qui contient le pronostic paye ne doit pas etre stockee, meme
+  // par le navigateur : l'acces ne vaut que pour le porteur du cookie.
+  if (hasAccess) res.set('Cache-Control', 'private, no-store');
   res.send(views.homePage({
     bet,
-    hasAccess: Boolean(bet) && auth.hasAccess(req, bet.date),
+    hasAccess,
     scoreboard,
     error: req.query.erreur ? String(req.query.erreur).slice(0, 200) : null,
   }));
 }));
 
-router.get('/pari', wrap(async (req, res) => {
-  const bet = await store.getTodayBet();
-  if (!bet) return res.redirect('/');
-  if (!auth.hasAccess(req, bet.date)) {
-    return res.redirect('/?erreur=' + encodeURIComponent('Accès expiré ou non payé pour le pari du jour.'));
-  }
-  // Meme regle que la photo du ticket : ce pronostic a ete paye, il ne doit
-  // vivre que dans l'onglet qui l'a demande.
-  res.set('Cache-Control', 'private, no-store');
-  res.send(views.betPage({ bet }));
-}));
+// Adresse de l'ancienne page dediee, gardee pour les liens deja partages.
+router.get('/pari', (req, res) => res.redirect(301, '/#pronostic'));
 
 // La photo n'est jamais servie en statique : elle passe par ici, et seulement
 // pour un visiteur qui a paye le pari du jour.
@@ -164,7 +165,7 @@ router.get('/pari/photo', wrap(async (req, res) => {
 router.post('/paiement', wrap(async (req, res) => {
   const bet = await store.getTodayBet();
   if (!bet) return res.redirect('/');
-  if (auth.hasAccess(req, bet.date)) return res.redirect('/pari');
+  if (auth.hasAccess(req, bet.date)) return res.redirect('/#pronostic');
   const { url } = await payment.createCheckout(bet.date);
   res.redirect(303, url);
 }));
@@ -179,7 +180,7 @@ router.get('/paiement/retour', wrap(async (req, res) => {
   }
   await store.recordOrder(order);
   auth.grantAccess(res, order.betDate);
-  res.redirect('/pari');
+  res.redirect('/#pronostic');
 }));
 
 // Equivalent du retour Stripe quand aucune cle n'est configuree.
@@ -190,7 +191,7 @@ router.get('/paiement/demo', wrap(async (req, res) => {
   }
   await store.recordOrder(order);
   auth.grantAccess(res, order.betDate);
-  res.redirect('/pari');
+  res.redirect('/#pronostic');
 }));
 
 /**
