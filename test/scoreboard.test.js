@@ -82,9 +82,48 @@ test('Homepage renders a configurable live balance and public history without an
   const scoreboard = buildPublicScoreboard(SETTINGS, [WON], [WON]);
   const html = homePage({ bet: null, hasAccess: false, scoreboard, error: null });
 
-  assert.match(html, /data-balance-hero>28,50 €<\/b> LIVE \/ <span data-hero-target>50,00 €<\/span>/);
+  assert.match(html, /data-balance>28,50 €/);
+  assert.match(html, /data-target>50,00 €/);
   assert.match(html, /OBJECTIF GRAND CHELEM/);
   assert.match(html, /Sinner vs Alcaraz/);
-  assert.match(html, /TRACK RECORD/);
+  assert.match(html, /Historique/);
   assert.doesNotMatch(html, /href="\/admin"/);
+});
+
+const TODAY_BET = {
+  date: '2026-08-29',
+  match: 'Sinner vs Alcaraz',
+  pick: 'Plus de 22,5 jeux',
+  odds: '1.85',
+  bookmaker: 'Winamax',
+  confidence: 4,
+  analysis: 'Deux gros serveurs, aucun break concédé depuis le début du tournoi.',
+  photo: { mime: 'image/png', size: 2048 },
+};
+
+test('Locked, the single page announces the odds but never the pick', () => {
+  const scoreboard = buildPublicScoreboard(SETTINGS, [], []);
+  const html = homePage({ bet: TODAY_BET, hasAccess: false, scoreboard, error: null });
+
+  // La cote et la confiance sont le seul moyen de juger avant d'acheter.
+  assert.match(html, /1\.85/);
+  assert.match(html, /Débloquer pour/);
+  // Ce qui est vendu ne doit pas fuiter dans la source de la page.
+  assert.doesNotMatch(html, /Plus de 22,5 jeux/);
+  assert.doesNotMatch(html, /Sinner vs Alcaraz/);
+  assert.doesNotMatch(html, /aucun break concédé/);
+});
+
+test('Unlocked, the same page fills in with the pick instead of sending elsewhere', () => {
+  const scoreboard = buildPublicScoreboard(SETTINGS, [], []);
+  const html = homePage({ bet: TODAY_BET, hasAccess: true, scoreboard, error: null });
+
+  assert.match(html, /Sinner vs Alcaraz/);
+  assert.match(html, /Plus de 22,5 jeux/);
+  assert.match(html, /aucun break concédé/);
+  assert.match(html, /Winamax/);
+  assert.match(html, /\/pari\/photo/);
+  // Le pronostic se lit ici : aucun bouton ne renvoie ailleurs.
+  assert.doesNotMatch(html, /Débloquer pour/);
+  assert.match(html, /id="pronostic"/);
 });
